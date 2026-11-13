@@ -1,0 +1,8 @@
+cache/
+output/
+data/
+index.html
+update.log
+sec_user_agent.txt
+.claude/
+__pycache__/
