@@ -715,9 +715,11 @@ def publish() -> None:
 
     git("add", "-f", "index.html", "data", ".nojekyll")
     commit = git("commit-tree", git("write-tree"), "-m", f"Update {datetime.now():%Y-%m-%d %H:%M}")
-    git("push", "-q", "-f", "origin", f"{commit}:refs/heads/gh-pages")
+    # 원격 이름 대신 주소로 올린다: 로컬에 추적 브랜치(origin/gh-pages)가 생기지 않아야
+    # 아래 prune이 방금 올린 객체들을 지울 수 있고, .git이 게시할 때마다 불어나지 않는다.
+    git("push", "-q", "-f", git("remote", "get-url", "origin"), f"{commit}:refs/heads/gh-pages")
     index_file.unlink(missing_ok=True)
-    git("prune")  # 방금 올린 커밋은 로컬 브랜치에 남기지 않으므로, 그 객체들을 바로 지워 .git이 불어나지 않게 한다
+    git("prune")
     sig_path.write_text(sig)
     log("게시: gh-pages 갱신 완료")
 
