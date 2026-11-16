@@ -14,6 +14,7 @@ sec_user_agent.txt (git에 올리지 않음)에 "이름 이메일" 형식으로 
     python update.py --no-tickers   # 티커 조회 생략 (캐시만 사용)
     python update.py --refetch      # 공시 캐시 무시하고 다시 받기
     python update.py --publish      # 생성 후 내용이 바뀌었으면 GitHub Pages(gh-pages)에 게시
+    python update.py --no-backtest  # 따라하기 백테스트(backtest.py) 생략
 """
 from __future__ import annotations
 
@@ -700,6 +701,9 @@ def publish() -> None:
     h = hashlib.sha1(TEMPLATE.read_bytes())
     for f in sorted(DATA_DIR.glob("*.js")):
         h.update(f.read_bytes())
+    backtest_page = ROOT / "backtest" / "index.html"
+    if backtest_page.exists():  # 가격이 매일 바뀌므로 백테스트가 돌면 거의 매 거래일 게시된다
+        h.update(backtest_page.read_bytes())
     sig, sig_path = h.hexdigest(), CACHE / "published.sig"
     if sig_path.exists() and sig_path.read_text() == sig:
         log("게시: 바뀐 내용이 없어 생략")
@@ -713,7 +717,7 @@ def publish() -> None:
         return subprocess.run(["git", *cmd], cwd=ROOT, env=env, check=True,
                               capture_output=True, text=True, encoding="utf-8").stdout.strip()
 
-    git("add", "-f", "index.html", "data", ".nojekyll")
+    git("add", "-f", "index.html", "data", ".nojekyll", *(["backtest"] if backtest_page.exists() else []))
     commit = git("commit-tree", git("write-tree"), "-m", f"Update {datetime.now():%Y-%m-%d %H:%M}")
     # 원격 이름 대신 주소로 올린다: 로컬에 추적 브랜치(origin/gh-pages)가 생기지 않아야
     # 아래 prune이 방금 올린 객체들을 지울 수 있고, .git이 게시할 때마다 불어나지 않는다.
@@ -753,6 +757,7 @@ def main() -> int:
     ap.add_argument("--no-tickers", action="store_true", help="티커 조회 생략")
     ap.add_argument("--refetch", action="store_true", help="공시 캐시 무시")
     ap.add_argument("--publish", action="store_true", help="생성 후 GitHub Pages(gh-pages)에 게시")
+    ap.add_argument("--no-backtest", action="store_true", help="따라하기 백테스트 생략")
     args = ap.parse_args()
 
     for stream in (sys.stdout, sys.stderr):
@@ -834,6 +839,13 @@ def main() -> int:
         + (f" · 새 공시 {len(new)}곳: {', '.join(new)}" if new else " · 새 공시 없음")
         + (f" · 실패 {len(failed)}곳: {', '.join(failed)}" if failed else "")
         + (f" · 티커 미조회 {remaining}개 (다음 실행 때 이어서 채움)" if remaining else ""))
+    if not args.no_backtest:
+        # 따라하기 백테스트(backtest/index.html). 실패해도 대시보드 게시는 계속하고, 지난 결과를 그대로 둔다.
+        try:
+            import backtest
+            backtest.build()
+        except Exception as e:
+            log(f"! 백테스트 실패 (지난 결과 유지): {e}")
     if args.publish:
         try:
             publish()

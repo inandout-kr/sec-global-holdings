@@ -6,3 +6,4 @@ update.log
 sec_user_agent.txt
 .claude/
 __pycache__/
+backtest/

@@ -27,6 +27,8 @@ select, input[type=search], button {
   font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--border);
   border-radius: 8px; padding: 6px 10px; }
 button { cursor: pointer; }
+.navlink { display: inline-flex; align-items: center; font-size: 13px; font-weight: 600; text-decoration: none; color: var(--new-ink); background: var(--new-bg); border-radius: 8px; padding: 6px 12px; white-space: nowrap; }
+.navlink:hover { text-decoration: underline; }
 button:hover, select:hover { background: var(--wash); }
 .notice { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; color: var(--ink2); font-size: 13px; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; min-width: 0; }
@@ -167,6 +169,7 @@ footer { color: var(--muted); font-size: 12px; margin-top: 16px; line-height: 1.
       <div class="meta" id="meta"></div>
     </div>
     <div class="controls">
+      <a class="navlink" href="backtest/">따라하기 백테스트 →</a>
       <button id="backBtn" type="button" hidden>← 전체 운용사</button>
       <select id="fundSel" aria-label="운용사"></select>
       <select id="qSel" aria-label="분기" hidden></select>
