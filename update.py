@@ -758,6 +758,7 @@ def main() -> int:
     ap.add_argument("--refetch", action="store_true", help="공시 캐시 무시")
     ap.add_argument("--publish", action="store_true", help="생성 후 GitHub Pages(gh-pages)에 게시")
     ap.add_argument("--no-backtest", action="store_true", help="따라하기 백테스트 생략")
+    ap.add_argument("--notify", action="store_true", help="새 공시를 텔레그램으로 알림 (notify.py)")
     args = ap.parse_args()
 
     for stream in (sys.stdout, sys.stderr):
@@ -803,7 +804,7 @@ def main() -> int:
         preds.setdefault(new_cusip, []).append((old, factor))
     log(f"매매가 아닌 변화 보정: CUSIP 승계 {len(links)}건, 액면분할·병합 {len(splits)}건")
 
-    index, new, periods = [], [], {}
+    index, new, periods, latest_only = [], [], {}, []
     for meta in metas:
         try:
             fund = build_fund(meta, cfg, tickers, preds, splits)
@@ -817,6 +818,7 @@ def main() -> int:
         (DATA_DIR / f"fund_{fund['cik']}.js").write_text(f"window.__13F_LOAD({blob});\n", encoding="utf-8")
         index.append(index_entry(fund))
         add_to_periods(periods, fund, links)
+        latest_only.append({**fund, "quarters": fund["quarters"][:1], "trend": []})  # 알림용 (메모리 절약)
         state[meta["cik"]] = meta["signature"]
         if meta["is_new"]:
             new.append(meta["name"])
@@ -839,6 +841,9 @@ def main() -> int:
         + (f" · 새 공시 {len(new)}곳: {', '.join(new)}" if new else " · 새 공시 없음")
         + (f" · 실패 {len(failed)}곳: {', '.join(failed)}" if failed else "")
         + (f" · 티커 미조회 {remaining}개 (다음 실행 때 이어서 채움)" if remaining else ""))
+    if args.notify:
+        import notify
+        notify.alert(latest_only, log)
     if not args.no_backtest:
         # 따라하기 백테스트(backtest/index.html). 실패해도 대시보드 게시는 계속하고, 지난 결과를 그대로 둔다.
         try:
