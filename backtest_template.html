@@ -6,7 +6,7 @@
 <title>13F 따라하기 백테스트</title>
 <meta name="description" content="13F 공시 다음 날 운용사 포트폴리오를 따라 샀다면: 운용사 59곳 기간별 수익과 SPY 비교">
 <style>
-/* 13F 공시 대시보드와 같은, 흰색에 가까운 옅은 회색 톤. 한국식으로 상승=빨강, 하락=파랑 */
+/* 13F 공시 대시보드와 같은, 흰색에 가까운 옅은 회색 톤. 다크 모드에서도 밝은 화면 그대로. 한국식으로 상승=빨강, 하락=파랑 */
 :root {
   color-scheme: light;
   --page: #f3f4f6;
@@ -24,32 +24,6 @@
   --cds-chart-grid: #e5e7eb; --cds-chart-axis: #c6c9cf; --cds-chart-reference: #a3a7ae; --cds-chart-muted: #9ca0a7;
   --cds-text-secondary: #696d74;
   --cds-surface-popover: #ffffff; --cds-border: rgba(20, 20, 19, .14); --cds-shadow-popover: 0 4px 14px rgba(20, 20, 19, .12);
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-    --page: #1c1c1a;
-    --color-bg: #262624; --color-panel: #262624; --color-fg: #ecebe4; --color-fg-muted: #a3a197;
-    --color-border-line: rgba(236, 235, 228, .12);
-    --color-ok: #f0716b; --color-bad: #6aa6f0; --color-warn: #e0a13a;
-    --color-link-bg: #20385a; --color-link-ink: #cfe3fd;
-    --series-1: #5b9cef; --series-2: #f0a050; --series-3: #85837a;
-    --cds-chart-grid: #3a3a36; --cds-chart-axis: #55544e; --cds-chart-reference: #75746b; --cds-chart-muted: #85837a;
-    --cds-text-secondary: #a3a197;
-    --cds-surface-popover: #30302d; --cds-border: rgba(236, 235, 228, .18); --cds-shadow-popover: 0 4px 14px rgba(0, 0, 0, .4);
-  }
-}
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --page: #1c1c1a;
-  --color-bg: #262624; --color-panel: #262624; --color-fg: #ecebe4; --color-fg-muted: #a3a197;
-  --color-border-line: rgba(236, 235, 228, .12);
-  --color-ok: #f0716b; --color-bad: #6aa6f0; --color-warn: #e0a13a;
-  --color-link-bg: #20385a; --color-link-ink: #cfe3fd;
-  --series-1: #5b9cef; --series-2: #f0a050; --series-3: #85837a;
-  --cds-chart-grid: #3a3a36; --cds-chart-axis: #55544e; --cds-chart-reference: #75746b; --cds-chart-muted: #85837a;
-  --cds-text-secondary: #a3a197;
-  --cds-surface-popover: #30302d; --cds-border: rgba(236, 235, 228, .18); --cds-shadow-popover: 0 4px 14px rgba(0, 0, 0, .4);
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--page); color: var(--color-fg); font: 14px/1.5 var(--font-anthropic-sans); }
@@ -296,7 +270,7 @@ window.__BT = "__BT_DATA__";
   <details id="bt-method">
     <summary>계산 방법과 한계</summary>
     <ul>
-      <li>공시 데이터: 13F 공시 대시보드가 SEC에서 받아 둔 분기 공시 전부(운용사당 최근 최대 6개 분기). 매일 아침 대시보드 갱신 뒤 가격을 새로 받아 다시 계산합니다. 주식 보유분만 쓰고 풋·콜 옵션은 뺐습니다.</li>
+      <li>공시 데이터: 13F 공시 대시보드가 SEC에서 받아 둔 분기 공시 전부(운용사마다 설정한 최근 분기 수만큼). 매일 아침 대시보드 갱신 뒤 가격을 새로 받아 다시 계산합니다. 주식 보유분만 쓰고 풋·콜 옵션은 뺐습니다.</li>
       <li>보유 상위 50 복제: 공시 평가액 상위 50종목을 평가액 비중대로 공시일 다음 거래일 시가에 사고, 다음 공시일 다음 거래일 시가에 전부 갈아탑니다. 마지막 공시분은 가격 기준일 종가까지 들고 있습니다.</li>
       <li>신규·확대 매수만: 직전 분기보다 새로 담았거나 늘린 종목만, 늘린 금액 비중대로 상위 50종목을 같은 방식으로 사고팝니다.</li>
       <li>비교 대상 SPY는 각 운용사의 첫 매수일 시가에 사서 들고 있습니다. 운용사마다 시작일이 달라 SPY 수익도 다릅니다. 순위는 그래서 SPY 대비 초과수익으로 매깁니다.</li>

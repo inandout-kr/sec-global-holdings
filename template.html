@@ -67,6 +67,7 @@ td.name { max-width: 240px; overflow: hidden; text-overflow: ellipsis; color: va
 tr:last-child td { border-bottom: 0; }
 tbody tr:hover { background: var(--wash); }
 .mini td.sym { font-weight: 600; width: 100%; max-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.wsub { font-size: 11px; font-weight: 400; color: var(--muted); margin-left: 5px; white-space: nowrap; }
 .mini td.sym small { font-weight: 400; color: var(--muted); margin-left: 6px; }
 .empty { color: var(--muted); padding: 12px 0; }
 .scroll { overflow-x: auto; }
@@ -385,6 +386,7 @@ function rowsOf(q) {
       const o = {cusip: r[0], t: r[1], name: titleCase(r[2]), cls: r[3], pc: r[4], typ: r[5],
                  v: r[6], sh: r[7], pv: r[8], psh: r[9], st: r[10], tv: r[11]};
       o.w = q.total ? o.v / q.total : 0;
+      o.pw = q.prev_total && o.pv ? o.pv / q.prev_total : 0;  // 직전 분기 포트폴리오 비중
       o.pct = (o.st === 'N' || !o.psh) ? null : (o.sh - o.psh) / o.psh;
       o.sym = o.t || o.name;
       o.key = (o.t + ' ' + o.name + ' ' + o.cusip).toLowerCase();
@@ -403,6 +405,9 @@ function delta(o) {
   if (o.st === 'D') return `<span class="d down">▼ ${pct(o.pct)}</span>`;
   return '<span class="d flat">–</span>';
 }
+/* 비중: 이번 분기 비중을 크게, 직전 분기 비중을 옆에 작게 (전량 매도는 0%) */
+const wpct = w => !w ? '0%' : w < 0.0001 ? '<0.01%' : (w * 100).toFixed(2) + '%';
+const wcell = o => `${wpct(o.st === 'S' ? 0 : o.w)}<span class="wsub">직전 ${wpct(o.pw)}</span>`;
 const optBadge = o => o.pc ? `<span class="opt">${esc(o.pc)}</span>` : (o.typ !== 'SH' ? `<span class="opt">${esc(o.typ)}</span>` : '');
 /* 종목코드가 바뀐 종목은 최신 CUSIP 쪽으로 모아 둔다. */
 function canon(c) { for (let i = 0; i < 5 && DATA.links && DATA.links[c]; i++) c = DATA.links[c]; return c; }
@@ -466,10 +471,10 @@ function renderTop10() {
 function renderPanels() {
   const eq = equity(quarter());
   const by = (st, key, dir) => eq.filter(o => o.st === st).sort((a, b) => dir * (a[key] - b[key])).slice(0, 10);
-  $('#pNew').innerHTML = miniTable(['종목', '평가액', '비중'], by('N', 'v', -1), o => [usd(o.v), (o.w * 100).toFixed(2) + '%']);
-  $('#pUp').innerHTML = miniTable(['종목', '주식 수 증감', '추정 매수액', '평가액'], by('U', 'tv', -1), o => [delta(o), usd(o.tv), usd(o.v)]);
-  $('#pDown').innerHTML = miniTable(['종목', '주식 수 증감', '추정 매도액', '잔여 평가액'], by('D', 'tv', 1), o => [delta(o), usd(-o.tv), usd(o.v)]);
-  $('#pSold').innerHTML = miniTable(['종목', '직전 평가액', '직전 주식 수'], by('S', 'pv', -1), o => [usd(o.pv), nf0.format(o.psh)]);
+  $('#pNew').innerHTML = miniTable(['종목', '평가액', '비중'], by('N', 'v', -1), o => [usd(o.v), wcell(o)]);
+  $('#pUp').innerHTML = miniTable(['종목', '주식 수 증감', '추정 매수액', '평가액', '비중'], by('U', 'tv', -1), o => [delta(o), usd(o.tv), usd(o.v), wcell(o)]);
+  $('#pDown').innerHTML = miniTable(['종목', '주식 수 증감', '추정 매도액', '잔여 평가액', '비중'], by('D', 'tv', 1), o => [delta(o), usd(-o.tv), usd(o.v), wcell(o)]);
+  $('#pSold').innerHTML = miniTable(['종목', '직전 평가액', '직전 주식 수', '비중'], by('S', 'pv', -1), o => [usd(o.pv), nf0.format(o.psh), wcell(o)]);
 }
 
 function renderTrend() {
@@ -512,7 +517,7 @@ const COLS = [
   {k: 'sym', label: '티커', cell: o => `<b>${tlink(o, esc(o.t || '—'))}</b>${optBadge(o)}`},
   {k: 'name', label: '종목명', cls: 'name', cell: o => `<span title="${esc(o.name)} · ${esc(o.cls)} · CUSIP ${esc(o.cusip)}">${esc(o.name)}</span>`},
   {k: 'v', label: '평가액($M)', n: 1, cell: o => o.st === 'S' ? '–' : mil(o.v)},
-  {k: 'w', label: '비중', n: 1, cell: o => o.st === 'S' ? '–' : (o.w * 100).toFixed(2) + '%'},
+  {k: 'w', label: '비중', n: 1, cell: wcell},
   {k: 'sh', label: '주식 수', n: 1, cell: o => nf0.format(o.sh)},
   {k: 'psh', label: '전분기 주식 수', n: 1, cell: o => o.psh ? nf0.format(o.psh) : '–'},
   {k: 'pct', label: '증감', n: 1, cell: delta},
