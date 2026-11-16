@@ -39,7 +39,7 @@ OUT = ROOT / "output"
 TEMPLATE = ROOT / "template.html"
 DASHBOARD = ROOT / "index.html"
 DATA_DIR = ROOT / "data"  # 운용사별 fund_<cik>.js, 분기별 period_<기준일>.js
-MAX_PERIODS = 6            # 종목별 화면에 싣는 분기 수
+MAX_PERIODS = 12           # 종목별 화면에 싣는 분기 수 (3년)
 
 # 2023-01-03 이전 접수분은 평가액 단위가 천 달러였다.
 VALUE_IN_THOUSANDS_BEFORE = "2023-01-03"
@@ -106,7 +106,7 @@ def list_13f_filings(cik: str, ua: str, want: int) -> tuple[list[dict], str]:
                 out.append({"form": form, "filed": filed, "period": period, "accession": acc})
 
     collect(sub["filings"]["recent"])
-    for page in sub["filings"].get("files", [])[:4]:
+    for page in sub["filings"].get("files", [])[:30]:
         if len({f["period"] for f in out if f["form"] == "13F-HR"}) >= want:
             break
         collect(json.loads(sec_get(f"https://data.sec.gov/submissions/{page['name']}", ua)))
@@ -550,7 +550,7 @@ def fetch_fund(fund: dict, cfg: dict, args, state: dict, stats: dict) -> tuple[d
     """
     ua = cfg["sec_user_agent"]
     cik = str(int(fund["cik"]))
-    want = int(cfg.get("quarters", 6))
+    want = int(cfg.get("quarters", 13))
     filings, sec_name = list_13f_filings(cik, ua, want)
     picked, weights, newer = [], {}, None
     for q in pick_quarters(filings):
