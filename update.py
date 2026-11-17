@@ -43,6 +43,9 @@ MAX_PERIODS = 12           # 종목별 화면에 싣는 분기 수 (3년)
 
 # 2023-01-03 이전 접수분은 평가액 단위가 천 달러였다.
 VALUE_IN_THOUSANDS_BEFORE = "2023-01-03"
+# 그 뒤에도 천 달러 단위로 내는 운용사가 있어 접수분마다 주당 평가액으로 다시 확인한다 (fix_value_unit).
+THOUSANDS_MAX_PER_SHARE = 1.5
+THOUSANDS_MIN_ROWS = 5
 TICKER_RETRY_DAYS = 30
 
 
@@ -159,11 +162,27 @@ def parse_info_table(xml_bytes: bytes, scale: int) -> list[list]:
     return list(agg.values())
 
 
+def fix_value_unit(data: dict) -> dict:
+    """2023년 이후에도 평가액을 천 달러 단위로 적어 내는 접수분을 달러로 맞춘다.
+
+    주식 행의 주당 평가액(평가액 ÷ 주식 수) 중앙값이 1.5달러 미만이면 천 달러 단위로 본다.
+    행이 몇 개뿐이면 동전주·워런트만 담은 정상 접수분과 구별되지 않으므로 건드리지 않는다.
+    캐시에는 원래 값이 남고 읽을 때마다 판정한다 (보정된 값은 다시 걸리지 않는다).
+    """
+    per_share = [h[5] / h[6] for h in data["holdings"] if h[3] == "" and h[4] == "SH" and h[5] > 0 and h[6] > 0]
+    if len(per_share) >= THOUSANDS_MIN_ROWS and statistics.median(per_share) < THOUSANDS_MAX_PER_SHARE:
+        for h in data["holdings"]:
+            h[5] *= 1000
+        if data.get("reported_total"):
+            data["reported_total"] *= 1000
+    return data
+
+
 def load_filing(cik: str, filing: dict, ua: str, refetch: bool = False) -> dict:
     """공시 한 건의 보유 목록. cache/<cik>/<accession>.json 에 저장해 재사용한다."""
     path = CACHE / str(int(cik)) / f"{filing['accession']}.json"
     if path.exists() and not refetch:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return fix_value_unit(json.loads(path.read_text(encoding="utf-8")))
 
     acc_nodash = filing["accession"].replace("-", "")
     base = f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/{acc_nodash}"
@@ -202,7 +221,7 @@ def load_filing(cik: str, filing: dict, ua: str, refetch: bool = False) -> dict:
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-    return data
+    return fix_value_unit(data)
 
 
 def load_quarter(cik: str, q: dict, ua: str, refetch: bool = False) -> dict | None:
