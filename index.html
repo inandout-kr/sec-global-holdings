@@ -1,0 +1,972 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>13F 공시 대시보드</title>
+<style>
+:root {
+  color-scheme: light;
+  /* 순백 대신 눈이 편한, 흰색에 가까운 옅은 회색 톤 */
+  --page: #f3f4f6; --surface: #fbfbfc; --ink: #141413; --ink2: #4f5257; --muted: #868a91;
+  --grid: #e5e7eb; --axis: #c6c9cf; --border: rgba(20,20,19,.10); --wash: rgba(20,20,19,.04);
+  --series: #2a78d6; --series-dim: #86b6ef;
+  --up: #c22f2f; --down: #1c5cab; --new-bg: #cde2fb; --new-ink: #0d366b;
+  --up-fill: #e34948; --down-fill: #2a78d6;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink);
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 24px 16px 48px; }
+header { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-end; justify-content: space-between; margin-bottom: 16px; }
+h1 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+.meta { color: var(--ink2); font-size: 13px; margin-top: 4px; }
+.meta a { color: inherit; }
+.controls { display: flex; gap: 8px; flex-wrap: wrap; }
+select, input[type=search], button {
+  font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 10px; }
+button { cursor: pointer; }
+.navlink { display: inline-flex; align-items: center; font-size: 13px; font-weight: 600; text-decoration: none; color: var(--new-ink); background: var(--new-bg); border-radius: 8px; padding: 6px 12px; white-space: nowrap; }
+.navlink:hover { text-decoration: underline; }
+button:hover, select:hover { background: var(--wash); }
+.notice { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; color: var(--ink2); font-size: 13px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; min-width: 0; }
+.card h2 { font-size: 14px; margin: 0 0 2px; }
+.card .sub { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 12px; }
+.kpi .lab { color: var(--ink2); font-size: 12px; }
+.kpi .val { font-size: 26px; font-weight: 600; letter-spacing: -.02em; line-height: 1.25; }
+.kpi .note { color: var(--ink2); font-size: 12px; }
+.grid2 { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 12px; margin-bottom: 12px; }
+.grid4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 12px; margin-bottom: 12px; }
+@media (max-width: 860px) { .grid2 { grid-template-columns: minmax(0, 1fr); } }
+.up { color: var(--up); } .down { color: var(--down); } .flat { color: var(--muted); }
+.d { font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
+.chip { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--new-bg); color: var(--new-ink); white-space: nowrap; }
+.opt { font-size: 10px; font-weight: 600; border: 1px solid var(--axis); border-radius: 4px; padding: 0 4px; color: var(--ink2); margin-left: 4px; }
+
+/* 상위 보유 막대 */
+.bars { display: grid; grid-template-columns: 20px minmax(64px, auto) minmax(60px, 1fr) auto auto auto; gap: 7px 10px; align-items: center; }
+.bars .rk { color: var(--muted); font-size: 12px; text-align: right; font-variant-numeric: tabular-nums; }
+.bars .tk { font-weight: 600; }
+.bars .tk small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bars .track { height: 10px; }
+.bars .fill { height: 10px; background: var(--series); border-radius: 0 4px 4px 0; min-width: 2px; }
+.bars .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bars .num.w { color: var(--ink2); }
+.bars .row { display: contents; }
+.bars .row:hover .fill { filter: brightness(1.12); }
+
+/* 표 */
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th { color: var(--ink2); font-weight: 500; font-size: 12px; }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+td.name { max-width: 240px; overflow: hidden; text-overflow: ellipsis; color: var(--ink2); }
+tr:last-child td { border-bottom: 0; }
+tbody tr:hover { background: var(--wash); }
+.mini td.sym { font-weight: 600; width: 100%; max-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.wsub { font-size: 11px; font-weight: 400; color: var(--muted); margin-left: 5px; white-space: nowrap; }
+.mini td.sym small { font-weight: 400; color: var(--muted); margin-left: 6px; }
+.empty { color: var(--muted); padding: 12px 0; }
+.scroll { overflow-x: auto; }
+th.sortable { cursor: pointer; user-select: none; }
+th.sortable:hover { color: var(--ink); }
+th .arrow { font-size: 10px; margin-left: 2px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+.toolbar input[type=search] { flex: 1 1 200px; max-width: 320px; }
+.seg { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; background: transparent; padding: 6px 10px; font-size: 13px; color: var(--ink2); }
+.seg button + button { border-left: 1px solid var(--border); }
+.seg button[aria-pressed=true] { background: var(--ink); color: var(--surface); }
+.spacer { flex: 1; }
+.pager { display: flex; gap: 8px; align-items: center; justify-content: flex-end; margin-top: 10px; color: var(--ink2); font-size: 13px; }
+.pager button:disabled { opacity: .4; cursor: default; }
+
+/* 추이 차트 */
+.chart { position: relative; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart .bar { fill: var(--series-dim); cursor: pointer; }
+.chart .bar.sel { fill: var(--series); }
+.chart .hit { fill: transparent; cursor: pointer; }
+.chart .hit:hover + .bar, .chart g:hover .bar { filter: brightness(1.1); }
+.chart text { fill: var(--muted); font-size: 11px; font-family: inherit; }
+.chart text.vl { fill: var(--ink2); }
+.chart text.sel { fill: var(--ink); font-weight: 600; }
+.chart line.g { stroke: var(--grid); stroke-width: 1; }
+.chart line.base { stroke: var(--axis); stroke-width: 1; }
+.tip { position: absolute; pointer-events: none; background: var(--ink); color: var(--surface); font-size: 12px; padding: 6px 9px; border-radius: 6px; white-space: nowrap; transform: translate(-50%, -100%); opacity: 0; transition: opacity .1s; z-index: 5; }
+.tip b { display: block; }
+
+[hidden] { display: none !important; }
+
+/* 보기 전환 탭 */
+.tabs { display: inline-flex; margin-bottom: 14px; background: var(--surface); }
+.tabs a { padding: 6px 16px; font-size: 13px; color: var(--ink2); text-decoration: none; }
+.tabs a + a { border-left: 1px solid var(--border); }
+.tabs a[aria-current=page] { background: var(--ink); color: var(--surface); }
+a.tl { color: inherit; text-decoration: none; }
+a.tl:hover { text-decoration: underline; }
+.rowlink tbody tr { cursor: pointer; }
+
+/* 좌우 막대 (왼쪽 = 매도·파랑, 오른쪽 = 매수·빨강) */
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--ink2); margin-bottom: 10px; align-items: center; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.sw.up { background: var(--up-fill); } .sw.down { background: var(--down-fill); }
+.dv { display: grid; grid-template-columns: minmax(60px, max-content) 1fr 1fr; gap: 7px 2px; align-items: center; font-size: 13px; }
+.dv .lab { padding-right: 10px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px; }
+.dv .lab small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
+.dv .neg, .dv .pos { display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; color: var(--ink2); font-size: 12px; white-space: nowrap; min-width: 0; }
+.dv .neg { flex-direction: row-reverse; border-right: 1px solid var(--axis); }
+.dv i { height: 10px; flex: none; }
+.dv .neg i { background: var(--down-fill); border-radius: 4px 0 0 4px; }
+.dv .pos i { background: var(--up-fill); border-radius: 0 4px 4px 0; }
+.dv .row { display: contents; }
+.dv .row:hover i { filter: brightness(1.12); }
+/* 한쪽 막대 */
+.hb { display: grid; grid-template-columns: minmax(60px, max-content) 1fr max-content; gap: 7px 10px; align-items: center; font-size: 13px; }
+.hb .lab { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px; }
+.hb .lab small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
+.hb i { display: block; height: 10px; border-radius: 0 4px 4px 0; min-width: 2px; }
+.hb i.up { background: var(--up-fill); } .hb i.down { background: var(--down-fill); }
+.hb .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.hb .row { display: contents; }
+
+/* 변동 지도 */
+.mx { width: auto; min-width: 100%; }
+.mx th, .mx td { padding: 3px 4px; text-align: center; border-bottom: 0; font-size: 12px; }
+.mx th.fn, .mx td.fn { text-align: left; padding-right: 12px; }
+.mx tbody tr:hover { background: transparent; }
+.c { display: inline-block; min-width: 62px; padding: 3px 6px; border-radius: 4px; font-variant-numeric: tabular-nums; font-size: 12px; text-align: center; }
+.c.N { background: #cf3f3e; color: #fff; }
+.c.U { background: #f7d3d0; color: #7d1f1e; }
+.c.H { background: var(--grid); color: var(--ink2); }
+.c.D { background: #cde2fb; color: #0d366b; }
+.c.S { background: #2a78d6; color: #fff; }
+.c.none, .c.na { color: var(--muted); }
+.ov td { vertical-align: top; }
+.ov td small { display: block; color: var(--muted); font-size: 11px; }
+.ov td.tops { white-space: normal; min-width: 150px; max-width: 220px; color: var(--ink2); }
+.ov tbody tr { cursor: pointer; }
+.ov a { color: inherit; text-decoration: none; font-weight: 600; }
+.ov a:hover { text-decoration: underline; }
+.ov .opt { margin-left: 0; }
+.seg { flex-wrap: wrap; }
+.summary pre { margin: 0; white-space: pre-wrap; font: 13px/1.6 system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif; color: var(--ink); max-height: 440px; overflow: auto; }
+.cardhead { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+footer { color: var(--muted); font-size: 12px; margin-top: 16px; line-height: 1.7; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="seg tabs" id="nav" aria-label="보기 전환">
+    <a href="#" data-v="funds">운용사별</a>
+    <a href="#t" data-v="tickers">종목별</a>
+  </nav>
+  <header>
+    <div>
+      <h1 id="title">13F 공시 대시보드</h1>
+      <div class="meta" id="meta"></div>
+    </div>
+    <div class="controls">
+      <a class="navlink" href="backtest/">따라하기 백테스트 →</a>
+      <button id="backBtn" type="button" hidden>← 전체 운용사</button>
+      <select id="fundSel" aria-label="운용사"></select>
+      <select id="qSel" aria-label="분기" hidden></select>
+      <button id="tBack" type="button" hidden>← 종목 순위</button>
+      <select id="pSel" aria-label="기준 분기" hidden></select>
+    </div>
+  </header>
+  <div id="notice"></div>
+
+  <main id="overview" hidden>
+    <section class="kpis" id="ovKpis"></section>
+    <section class="card">
+      <h2>운용사별 최신 13F</h2>
+      <div class="sub">운용사를 누르면 상세 화면으로 이동합니다 · 최대 매수·매도는 추정 매매액(주식 수 변화 × 분기말 단가) 기준</div>
+      <div class="toolbar">
+        <input type="search" id="ovSearch" placeholder="운용사 · 인물 · 종목 검색" aria-label="운용사 검색">
+        <div class="seg" id="ovCats" role="group" aria-label="유형 필터"></div>
+      </div>
+      <div class="scroll"><table id="ovTable" class="ov"><thead></thead><tbody></tbody></table></div>
+    </section>
+  </main>
+
+  <main id="detail" hidden>
+  <section class="kpis" id="kpis"></section>
+
+  <section class="grid2">
+    <div class="card">
+      <h2>상위 10개 보유 종목</h2>
+      <div class="sub">분기말 평가액 · 포트폴리오 비중 · 전분기 대비 주식 수 증감</div>
+      <div class="bars" id="top10"></div>
+    </div>
+    <div class="card">
+      <h2>13F 총 평가액 추이</h2>
+      <div class="sub">분기말 기준, 막대를 누르면 해당 분기로 이동</div>
+      <div class="chart" id="trend"></div>
+    </div>
+  </section>
+
+  <section class="grid4">
+    <div class="card"><h2>신규 편입</h2><div class="sub">전분기에 없던 종목 · 평가액 순</div><div class="scroll" id="pNew"></div></div>
+    <div class="card"><h2>비중 확대</h2><div class="sub">추정 매수액(주식 수 증가분 × 분기말 단가) 순</div><div class="scroll" id="pUp"></div></div>
+    <div class="card"><h2>비중 축소</h2><div class="sub">추정 매도액(주식 수 감소분 × 분기말 단가) 순</div><div class="scroll" id="pDown"></div></div>
+    <div class="card"><h2>전량 매도</h2><div class="sub">직전 분기말 평가액 순</div><div class="scroll" id="pSold"></div></div>
+  </section>
+
+  <section class="card summary" style="margin-bottom:12px">
+    <div class="cardhead">
+      <div><h2>자동 요약</h2><div class="sub">공시 데이터로 생성한 텍스트 — 그대로 복사해 공유할 수 있습니다</div></div>
+      <button id="copyBtn" type="button">복사</button>
+    </div>
+    <pre id="summary"></pre>
+  </section>
+
+  <section class="card">
+    <h2>전체 보유 종목</h2>
+    <div class="sub" id="tableSub"></div>
+    <div class="toolbar">
+      <input type="search" id="search" placeholder="티커 · 종목명 · CUSIP 검색" aria-label="검색">
+      <div class="seg" id="filters" role="group" aria-label="상태 필터"></div>
+      <span class="spacer"></span>
+      <button id="csvBtn" type="button">CSV 내려받기</button>
+    </div>
+    <div class="scroll"><table id="full"><thead></thead><tbody></tbody></table></div>
+    <div class="pager">
+      <span id="pageInfo"></span>
+      <button id="prev" type="button">이전</button>
+      <button id="next" type="button">다음</button>
+    </div>
+  </section>
+  </main>
+
+  <main id="tickers" hidden>
+    <section class="kpis" id="tkKpis"></section>
+    <section class="card" style="margin-bottom:12px">
+      <div class="toolbar" style="margin:0">
+        <span class="sub" style="margin:0">집계할 운용사 유형 (눌러서 켜고 끄기)</span>
+        <div class="seg" id="tkCats" role="group" aria-label="집계할 운용사 유형"></div>
+      </div>
+    </section>
+    <section class="grid4">
+      <div class="card">
+        <h2>매수한 운용사가 더 많은 종목</h2>
+        <div class="sub">주식 수를 늘리거나 새로 산 운용사 수 − 줄이거나 다 판 운용사 수</div>
+        <div class="legend"><span><i class="sw down"></i>매도 운용사 수</span><span><i class="sw up"></i>매수 운용사 수</span></div>
+        <div class="dv" id="tkBuyers"></div>
+      </div>
+      <div class="card">
+        <h2>매도한 운용사가 더 많은 종목</h2>
+        <div class="sub">같은 기준으로 매도 쪽이 우세한 종목</div>
+        <div class="legend"><span><i class="sw down"></i>매도 운용사 수</span><span><i class="sw up"></i>매수 운용사 수</span></div>
+        <div class="dv" id="tkSellers"></div>
+      </div>
+      <div class="card">
+        <h2>추정 순매수액 상위</h2>
+        <div class="sub">운용사들의 추정 매매액(주식 수 변화 × 분기말 단가) 합계</div>
+        <div class="hb" id="tkInflow"></div>
+      </div>
+      <div class="card">
+        <h2>추정 순매도액 상위</h2>
+        <div class="sub">같은 기준으로 순매도가 큰 종목</div>
+        <div class="hb" id="tkOutflow"></div>
+      </div>
+    </section>
+    <section class="card">
+      <h2>전체 종목</h2>
+      <div class="sub" id="tkSub"></div>
+      <div class="toolbar">
+        <input type="search" id="tkSearch" placeholder="티커 · 종목명 · CUSIP 검색" aria-label="종목 검색">
+      </div>
+      <div class="scroll"><table id="tkTable" class="rowlink"><thead></thead><tbody></tbody></table></div>
+      <div class="pager">
+        <span id="tkPageInfo"></span>
+        <button id="tkPrev" type="button">이전</button>
+        <button id="tkNext" type="button">다음</button>
+      </div>
+    </section>
+  </main>
+
+  <main id="ticker" hidden>
+    <section class="kpis" id="tdKpis"></section>
+    <section class="grid4">
+      <div class="card">
+        <h2>운용사별 추정 매매액</h2>
+        <div class="sub" id="tdTradeSub"></div>
+        <div class="legend"><span><i class="sw down"></i>매도</span><span><i class="sw up"></i>매수</span></div>
+        <div class="dv" id="tdTrades"></div>
+      </div>
+      <div class="card">
+        <h2>분기별 매수·매도 운용사 수</h2>
+        <div class="sub">분기마다 이 종목을 늘린 곳과 줄인 곳 · 괄호는 보유/집계 운용사 수</div>
+        <div class="legend"><span><i class="sw down"></i>매도 운용사 수</span><span><i class="sw up"></i>매수 운용사 수</span></div>
+        <div class="dv" id="tdQuarters"></div>
+      </div>
+    </section>
+    <section class="card" style="margin-bottom:12px">
+      <h2>분기별 변동 지도</h2>
+      <div class="sub">운용사 × 분기 · 칸의 숫자는 직전 공시 대비 주식 수 증감률</div>
+      <div class="legend">
+        <span><span class="c N">신규</span></span><span><span class="c U">확대</span></span><span><span class="c H">유지</span></span>
+        <span><span class="c D">축소</span></span><span><span class="c S">전량 매도</span></span><span>– 미보유</span><span>· 미공시</span>
+      </div>
+      <div class="scroll" id="tdMatrix"></div>
+    </section>
+    <section class="card">
+      <h2>보유 운용사</h2>
+      <div class="sub" id="tdSub"></div>
+      <div class="scroll"><table id="tdTable"><thead></thead><tbody></tbody></table></div>
+    </section>
+  </main>
+
+  <footer id="foot"></footer>
+</div>
+
+<script>
+const DATA = {"generated":"2026-11-28 23:02","tickers_pending":0,"failed":[],"funds":[{"cik":"1067983","name":"Berkshire Hathaway","name_ko":"버크셔 해서웨이","manager":"워런 버핏","category":"가치·집중","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":304196581325,"prev_total":299253556246,"count":30,"n_new":1,"n_sold":0,"top":[["AAPL",75901188420],["AXP",46104813870],["KO",34432000000]],"buy":["LEN",1054362685,"U"],"sell":["BAC",-1498627014,"D"]},{"cik":"2026053","name":"Pershing Square","name_ko":"퍼싱 스퀘어","manager":"빌 애크먼","category":"가치·집중","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":30796550126,"prev_total":25521452281,"count":16,"n_new":2,"n_sold":1,"top":[["PS",10309165762],["UBER",2347719794],["AMZN",2119214838]],"buy":["ICE",1008855725,"N"],"sell":["MSFT",-1098606668,"D"]},{"cik":"1061768","name":"Baupost Group","name_ko":"바우포스트","manager":"세스 클라만","category":"가치·집중","period":"2026-09-30","label":"26Q3","filed":"2026-11-13","total":5045853000,"prev_total":5415853000,"count":21,"n_new":2,"n_sold":4,"top":[["AMZN",932781000],["ELV",495805000],["QSR",480104000]],"buy":["HONA",175426000,"N"],"sell":["TFX",-178605000,"S"]},{"cik":"1709323","name":"Himalaya Capital","name_ko":"히말라야 캐피털","manager":"리루","category":"가치·집중","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":3781431260,"prev_total":3702921099,"count":8,"n_new":0,"n_sold":0,"top":[["PDD",916661615],["GOOGL",875098664],["GOOG",835255962]],"buy":["PDD",77940000,"U"],"sell":null},{"cik":"1112520","name":"Akre Capital","name_ko":"에이커 캐피털","manager":"척 에이커","category":"가치·집중","period":"2026-09-30","label":"26Q3","filed":"2026-11-13","total":4424875808,"prev_total":5122536308,"count":21,"n_new":2,"n_sold":1,"top":[["MA",970165325],["MCO",462720323],["KKR",393502138]],"buy":["TDG",12449900,"N"],"sell":["ABNB",-169394482,"S"]},{"cik":"1569205","name":"Fundsmith","name_ko":"펀드스미스","manager":"테리 스미스","category":"가치·집중","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":12922460889,"prev_total":13648923682,"count":42,"n_new":2,"n_sold":1,"top":[["WAT",995873920],["V",809191397],["MA",805835538]],"buy":["VEEV",539089452,"U"],"sell":["MAR",-436709765,"D"]},{"cik":"1549575","name":"Dalal Street","name_ko":"달랄 스트리트","manager":"모니시 파브라이","category":"가치·집중","period":"2026-09-30","label":"26Q3","filed":"2026-11-13","total":362064212,"prev_total":326749980,"count":4,"n_new":0,"n_sold":0,"top":[["HCC",164452671],["RIG",149210598],["AMR",28722556]],"buy":["RIG",42321625,"U"],"sell":["AMR",-58279820,"D"]},{"cik":"1489933","name":"Greenlight (DME Capital)","name_ko":"그린라이트 캐피털","manager":"데이비드 아인혼","category":"가치·집중","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":3553265746,"prev_total":3908853490,"count":45,"n_new":6,"n_sold":7,"top":[["GRBK",625888690],["FLR",220615048],["CNR",193654182]],"buy":["CENX",81708278,"N"],"sell":["PYPL",-61502137,"S"]},{"cik":"1649339","name":"Scion Asset Management","name_ko":"사이언 자산운용","manager":"마이클 버리","category":"가치·집중","period":"2025-09-30","label":"25Q3","filed":"2025-11-03","total":1381198076,"prev_total":578337040,"count":8,"n_new":7,"n_sold":14,"top":[["MOH",23920000],["LULU",17793000],["SLM",13287895]],"buy":["MOH",23920000,"N"],"sell":["EL",-12120000,"S"]},{"cik":"1647251","name":"TCI Fund Management","name_ko":"TCI 펀드","manager":"크리스 혼","category":"가치·집중","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":49583884496,"prev_total":52769884406,"count":12,"n_new":1,"n_sold":0,"top":[["GE",14792625484],["V",10917930511],["MCO",6484531807]],"buy":["MLM",233082102,"U"],"sell":["CP",-72922011,"D"]},{"cik":"949509","name":"Oaktree Capital","name_ko":"오크트리 캐피털","manager":"하워드 막스","category":"가치·집중","period":"2026-06-30","label":"26Q2","filed":"2026-08-14","total":7206070520,"prev_total":6557119230,"count":145,"n_new":40,"n_sold":42,"top":[["TRMD",524260745],["EXE",477605527],["GTX",275160183]],"buy":["OCSL",71875731,"U"],"sell":["GTX",-253609999,"D"]},{"cik":"1350694","name":"Bridgewater Associates","name_ko":"브리지워터","manager":"레이 달리오 창업","category":"헤지펀드","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":22985792515,"prev_total":24376086530,"count":974,"n_new":164,"n_sold":187,"top":[["SPY",2595471644],["IVV",1154942390],["NVDA",613935912]],"buy":["APP",155797688,"U"],"sell":["SPY",-1461954846,"D"]},{"cik":"1167483","name":"Tiger Global","name_ko":"타이거 글로벌","manager":"체이스 콜먼","category":"헤지펀드","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":20173101170,"prev_total":23981506027,"count":45,"n_new":3,"n_sold":4,"top":[["NVDA",2740560000],["AMZN",2311877799],["META",1630449026]],"buy":["CBRS",257121195,"U"],"sell":["GOOGL",-845221853,"D"]},{"cik":"1135730","name":"Coatue Management","name_ko":"코튜","manager":"필립 라폰트","category":"헤지펀드","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":54495247703,"prev_total":48629053706,"count":73,"n_new":14,"n_sold":7,"top":[["TSM",4305233363],["MU",3488055247],["MSFT",3312369235]],"buy":["CRM",1844015745,"N"],"sell":["FPS",-1145207477,"S"]},{"cik":"1061165","name":"Lone Pine Capital","name_ko":"론 파인","manager":"스티븐 맨델","category":"헤지펀드","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":15329467248,"prev_total":16357760275,"count":31,"n_new":9,"n_sold":12,"top":[["AMZN",1394866773],["DHR",1095168397],["META",908445314]],"buy":["AMZN",1394866773,"N"],"sell":["STX",-965105185,"S"]},{"cik":"1103804","name":"Viking Global","name_ko":"바이킹 글로벌","manager":"안드레아스 할보르센","category":"헤지펀드","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":32703894076,"prev_total":35079228595,"count":79,"n_new":24,"n_sold":35,"top":[["TSM",1780873153],["V",1547918540],["APD",1366698313]],"buy":["MA",818078172,"N"],"sell":["SCHW",-981648443,"S"]},{"cik":"1040273","name":"Third Point","name_ko":"서드 포인트","manager":"댄 롭","category":"헤지펀드","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":4589115363,"prev_total":4679571988,"count":39,"n_new":11,"n_sold":15,"top":[["META",474992900],["UNM",438650000],["NVDA",342570000]],"buy":["META",474992900,"N"],"sell":["Warner Bros Discovery Inc",-533200000,"S"]},{"cik":"1656456","name":"Appaloosa","name_ko":"아팔루사","manager":"데이비드 테퍼","category":"헤지펀드","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":7559628593,"prev_total":7725383349,"count":24,"n_new":4,"n_sold":7,"top":[["MU",1331387500],["AMZN",1114946250],["TSM",718499250]],"buy":["SPCX",524300737,"U"],"sell":["GOOG",-289629000,"D"]},{"cik":"1536411","name":"Duquesne Family Office","name_ko":"듀케인 패밀리오피스","manager":"스탠리 드러켄밀러","category":"헤지펀드","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":4470867000,"prev_total":5210856000,"count":65,"n_new":17,"n_sold":47,"top":[["NTRA",1306335000],["STX",315247000],["AMZN",192493000]],"buy":["STX",202721373,"U"],"sell":["TSM",-254081672,"D"]},{"cik":"1029160","name":"Soros Fund Management","name_ko":"소로스 펀드","manager":"조지 소로스","category":"헤지펀드","period":"2026-09-30","label":"26Q3","filed":"2026-11-13","total":8508315961,"prev_total":8143628824,"count":263,"n_new":98,"n_sold":101,"top":[["INTC",340250900],["AMZN",262939456],["TSM",250409534]],"buy":["INTC",328227900,"U"],"sell":["Electronic Arts Inc",-199091790,"S"]},{"cik":"1035674","name":"Paulson & Co","name_ko":"폴슨앤코","manager":"존 폴슨","category":"헤지펀드","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":2916534729,"prev_total":2575691752,"count":9,"n_new":2,"n_sold":1,"top":[["MDGL",751716311],["PPTA",697731239],["AAMI",535887392]],"buy":["MDGL",76399832,"U"],"sell":["GOOGL",-1766650,"S"]},{"cik":"923093","name":"Tudor Investment","name_ko":"튜더 인베스트먼트","manager":"폴 튜더 존스","category":"헤지펀드","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":76623373608,"prev_total":71912518398,"count":3508,"n_new":877,"n_sold":826,"top":[["SPY",1150786554],["TSM",706241881],["NVDA",337759860]],"buy":["SPY",831304832,"U"],"sell":["IVV",-990135301,"D"]},{"cik":"1541617","name":"Altimeter Capital","name_ko":"알티미터","manager":"브래드 거스트너","category":"헤지펀드","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":10308735663,"prev_total":9829676383,"count":17,"n_new":3,"n_sold":6,"top":[["NVDA",2285186039],["META",1231865441],["CBRS",1010646202]],"buy":["TSLA",679617266,"N"],"sell":["QCOM",-347865327,"S"]},{"cik":"1387322","name":"Whale Rock Capital","name_ko":"웨일 록","manager":"알렉스 사세르도테","category":"헤지펀드","period":"2026-09-30","label":"26Q3","filed":"2026-11-13","total":11449943528,"prev_total":12456319060,"count":40,"n_new":9,"n_sold":4,"top":[["META",868864990],["AMD",793136440],["CLS",638225744]],"buy":["META",538195963,"U"],"sell":["ALAB",-757318364,"S"]},{"cik":"1747057","name":"D1 Capital Partners","name_ko":"D1 캐피털","manager":"댄 선드하임","category":"헤지펀드","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":31819682979,"prev_total":34783267943,"count":44,"n_new":4,"n_sold":15,"top":[["SPCX",17612914353],["CART",972978437],["LSCC",765620611]],"buy":["LSCC",629442124,"U"],"sell":["SPCX",-1401816766,"D"]},{"cik":"2045724","name":"Situational Awareness","name_ko":"시추에이셔널 어웨어니스","manager":"레오폴드 아셴브레너","category":"헤지펀드","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":1577454028,"prev_total":20242292228,"count":9,"n_new":4,"n_sold":21,"top":[["SHAZ",440673870],["CLSK",38885094],["IREN",21579080]],"buy":["SHAZ",146045336,"U"],"sell":["SNDK",-5673738513,"S"]},{"cik":"921669","name":"Icahn (Carl C.)","name_ko":"아이칸","manager":"칼 아이칸","category":"행동주의","period":"2026-09-30","label":"26Q3","filed":"2026-11-13","total":9428081917,"prev_total":8264090525,"count":10,"n_new":0,"n_sold":2,"top":[["IEP",4447740626],["CVI",3630583606],["UAN",515453836]],"buy":["IEP",273585560,"U"],"sell":["JBLU",-118371366,"S"]},{"cik":"1791786","name":"Elliott Investment Management","name_ko":"엘리엇","manager":"폴 싱어","category":"행동주의","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":28637999237,"prev_total":22669814953,"count":39,"n_new":11,"n_sold":1,"top":[["PSX",4914972810],["TFPM",4105171693],["SU",1999042980]],"buy":["NCLH",43980000,"U"],"sell":["HPE",-336827122,"D"]},{"cik":"1345471","name":"Trian Fund Management","name_ko":"트라이언","manager":"넬슨 펠츠","category":"행동주의","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":2595775908,"prev_total":4230905202,"count":8,"n_new":2,"n_sold":2,"top":[["GE",1258767602],["SOLV",726069777],["GEHC",201688937]],"buy":["FERG",190343439,"N"],"sell":["Janus Henderson Group Plc",-1334027864,"S"]},{"cik":"1517137","name":"Starboard Value","name_ko":"스타보드 밸류","manager":"제프 스미스","category":"행동주의","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":4671957549,"prev_total":4523797468,"count":22,"n_new":3,"n_sold":3,"top":[["IJH",877883607],["Qorvo Inc",642407496],["Kenvue Inc",482252781]],"buy":["IJH",239127264,"U"],"sell":["DT",-141030758,"D"]},{"cik":"1418814","name":"ValueAct","name_ko":"밸류액트","manager":"메이슨 모핏","category":"행동주의","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":6177720948,"prev_total":5634931372,"count":21,"n_new":7,"n_sold":4,"top":[["V",832298113],["AMZN",748122705],["CRM",687449431]],"buy":["A",181890436,"N"],"sell":["TOST",-172597763,"D"]},{"cik":"1998597","name":"JANA Partners","name_ko":"자나 파트너스","manager":"배리 로젠스타인","category":"행동주의","period":"2026-09-30","label":"26Q3","filed":"2026-11-13","total":1589134762,"prev_total":1902301416,"count":10,"n_new":2,"n_sold":2,"top":[["MRCY",321303707],["LW",224902333],["COO",216985883]],"buy":["CWST",145633813,"N"],"sell":["MKL",-149879846,"S"]},{"cik":"1037389","name":"Renaissance Technologies","name_ko":"르네상스 테크놀로지스","manager":"짐 사이먼스 창업","category":"퀀트·멀티전략","period":"2026-09-30","label":"26Q3","filed":"2026-11-12","total":73424247652,"prev_total":72617871974,"count":3151,"n_new":584,"n_sold":573,"top":[["MU",1619650963],["AMD",1205536416],["UTHR",908152909]],"buy":["MU",1394294550,"U"],"sell":["NVDA",-1625101227,"D"]},{"cik":"1423053","name":"Citadel Advisors","name_ko":"시타델","manager":"켄 그리핀","category":"퀀트·멀티전략","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":899604780240,"prev_total":875011794337,"count":13843,"n_new":2466,"n_sold":2195,"top":[["IVV",11233213626],["MSFT",2995257526],["NVDA",2663091220]],"buy":["SPY",2194537224,"U"],"sell":["IVV",-2304325475,"D"]},{"cik":"1273087","name":"Millennium Management","name_ko":"밀레니엄","manager":"이즈리얼 잉글랜더","category":"퀀트·멀티전략","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":302248162268,"prev_total":276293649404,"count":6103,"n_new":942,"n_sold":638,"top":[["IVV",8612684003],["NVDA",2978481488],["VOO",1927371308]],"buy":["TSLA",828435579,"U"],"sell":["IVV",-2495152320,"D"]},{"cik":"1179392","name":"Two Sigma Investments","name_ko":"투 시그마","manager":"존 오버덱 · 데이비드 시겔","category":"퀀트·멀티전략","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":141912496371,"prev_total":138117670065,"count":4830,"n_new":794,"n_sold":981,"top":[["NVDA",2393743502],["MSFT",1776059862],["AAPL",1352107490]],"buy":["NVDA",958472492,"U"],"sell":["MRNA",-1294839144,"D"]},{"cik":"1009207","name":"D. E. Shaw","name_ko":"D.E. 쇼","manager":"데이비드 쇼 창업","category":"퀀트·멀티전략","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":208992908553,"prev_total":210202510998,"count":4902,"n_new":721,"n_sold":652,"top":[["SPY",8886385922],["NVDA",4281442829],["INTC",2221620761]],"buy":["INTC",1212870862,"U"],"sell":["CRWD",-1847539872,"D"]},{"cik":"1603466","name":"Point72","name_ko":"포인트72","manager":"스티브 코언","category":"퀀트·멀티전략","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":90042211133,"prev_total":90675333456,"count":3856,"n_new":837,"n_sold":904,"top":[["AMZN",1087444824],["MSFT",1054305956],["CRDO",895495406]],"buy":["MSFT",1038138322,"U"],"sell":["AMD",-804556815,"D"]},{"cik":"1167557","name":"AQR Capital","name_ko":"AQR","manager":"클리프 애스니스","category":"퀀트·멀티전략","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":337406348561,"prev_total":286847511937,"count":4057,"n_new":283,"n_sold":126,"top":[["NVDA",10165105627],["AAPL",6956543948],["MSFT",6475052553]],"buy":["NVDA",1526999149,"U"],"sell":["EIX",-458734832,"D"]},{"cik":"1218710","name":"Balyasny Asset Management","name_ko":"발야스니","manager":"드미트리 발야스니","category":"퀀트·멀티전략","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":85584909496,"prev_total":80215403914,"count":2961,"n_new":766,"n_sold":755,"top":[["NVDA",1131604630],["MSFT",947129346],["Warner Bros Discovery Inc",810557380]],"buy":["MSFT",639406272,"U"],"sell":["AMZN",-506557827,"D"]},{"cik":"1318757","name":"Marshall Wace","name_ko":"마셜 웨이스","manager":"폴 마셜","category":"퀀트·멀티전략","period":"2026-09-30","label":"26Q3","filed":"2026-11-13","total":114305358463,"prev_total":126697578778,"count":3082,"n_new":752,"n_sold":773,"top":[["IVV",11560162651],["SPY",5303639410],["VOO",3510535552]],"buy":["SPY",5303526541,"U"],"sell":["IVV",-18942513225,"D"]},{"cik":"1595888","name":"Jane Street","name_ko":"제인 스트리트","manager":"","category":"퀀트·멀티전략","period":"2026-09-30","label":"26Q3","filed":"2026-11-12","total":1194275249469,"prev_total":1205633745715,"count":11479,"n_new":2502,"n_sold":2408,"top":[["SPY",15280354393],["NVDA",5441553621],["SOXX",2894255342]],"buy":["SOXX",2866691087,"U"],"sell":["SPY",-18472625194,"D"]},{"cik":"1446194","name":"Susquehanna International","name_ko":"서스쿼해나","manager":"제프 야스","category":"퀀트·멀티전략","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":1256605740316,"prev_total":1283997737803,"count":13390,"n_new":1915,"n_sold":1801,"top":[["SPY",15894053431],["QQQ",6425685127],["NVDA",4114075687]],"buy":["SPY",4753112829,"U"],"sell":["MSFT",-3195294167,"D"]},{"cik":"2012383","name":"BlackRock","name_ko":"블랙록","manager":"래리 핑크","category":"자산운용·은행","period":"2026-09-30","label":"26Q3","filed":"2026-11-13","total":6791591104981,"prev_total":6729538649155,"count":5805,"n_new":345,"n_sold":236,"top":[["NVDA",443259525419],["AAPL",385329896040],["MSFT",311391427892]],"buy":["SNDK",4109113888,"U"],"sell":["Electronic Arts Inc",-5125838120,"S"]},{"cik":"2100119","name":"Vanguard Capital Management","name_ko":"뱅가드 (캐피털 매니지먼트)","manager":"","category":"자산운용·은행","period":"2026-09-30","label":"26Q3","filed":"2026-11-13","total":4762563346699,"prev_total":4680129845935,"count":4072,"n_new":130,"n_sold":150,"top":[["NVDA",351842397458],["AAPL",318109956628],["MSFT",249312896997]],"buy":["JPM",4114065578,"U"],"sell":["Electronic Arts Inc",-3192040781,"S"]},{"cik":"2100121","name":"Vanguard Portfolio Management","name_ko":"뱅가드 (포트폴리오 매니지먼트)","manager":"","category":"자산운용·은행","period":"2026-09-30","label":"26Q3","filed":"2026-11-13","total":2213841210442,"prev_total":2219148474929,"count":3126,"n_new":41,"n_sold":56,"top":[["NVDA",116984343262],["AAPL",109907757502],["MSFT",85763466662]],"buy":["AVGO",3760979752,"U"],"sell":["STX",-2841756288,"D"]},{"cik":"93751","name":"State Street","name_ko":"스테이트 스트리트","manager":"","category":"자산운용·은행","period":"2026-09-30","label":"26Q3","filed":"2026-11-12","total":3435560457924,"prev_total":3383260349220,"count":4310,"n_new":177,"n_sold":128,"top":[["NVDA",234355573846],["AAPL",207307440324],["MSFT",164495234861]],"buy":["NVDA",3496078950,"U"],"sell":["Electronic Arts Inc",-2880485166,"S"]},{"cik":"315066","name":"Fidelity (FMR)","name_ko":"피델리티","manager":"","category":"자산운용·은행","period":"2026-09-30","label":"26Q3","filed":"2026-11-10","total":2318343172143,"prev_total":2303878429723,"count":5775,"n_new":510,"n_sold":294,"top":[["NVDA",213034649836],["AAPL",123213667912],["MSFT",104520177799]],"buy":["AMD",16965102682,"U"],"sell":["NVDA",-21295002591,"D"]},{"cik":"19617","name":"JPMorgan Chase","name_ko":"JP모건","manager":"","category":"자산운용·은행","period":"2026-09-30","label":"26Q3","filed":"2026-11-12","total":1842872896476,"prev_total":1807041234839,"count":8233,"n_new":1132,"n_sold":594,"top":[["NVDA",105008191161],["MSFT",80402431158],["AAPL",74016494144]],"buy":["MSFT",11604516802,"U"],"sell":["IVV",-6170057736,"D"]},{"cik":"886982","name":"Goldman Sachs","name_ko":"골드만삭스","manager":"","category":"자산운용·은행","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":1166985800775,"prev_total":1151631766592,"count":6552,"n_new":761,"n_sold":733,"top":[["NVDA",50266168974],["AAPL",34914232321],["MSFT",32256526565]],"buy":["NVDA",6383713616,"U"],"sell":["BE",-3535648512,"D"]},{"cik":"895421","name":"Morgan Stanley","name_ko":"모건스탠리","manager":"","category":"자산운용·은행","period":"2026-09-30","label":"26Q3","filed":"2026-11-13","total":1946292192940,"prev_total":1890805575974,"count":7896,"n_new":351,"n_sold":857,"top":[["NVDA",82674988489],["AAPL",81239821201],["MSFT",65087486923]],"buy":["SPCX",3585886930,"U"],"sell":["CRM",-2408202452,"D"]},{"cik":"1697748","name":"ARK Invest","name_ko":"아크 인베스트","manager":"캐시 우드","category":"자산운용·은행","period":"2026-09-30","label":"26Q3","filed":"2026-11-13","total":17374380716,"prev_total":15402788184,"count":182,"n_new":8,"n_sold":17,"top":[["TSLA",1196306136],["SPCX",1017764417],["TEM",766382941]],"buy":["SPCX",342211410,"U"],"sell":["AMD",-453176205,"D"]},{"cik":"1608046","name":"National Pension Service","name_ko":"국민연금공단","manager":"","category":"연기금·국부펀드","period":"2026-09-30","label":"26Q3","filed":"2026-11-12","total":158738850567,"prev_total":155079663358,"count":553,"n_new":11,"n_sold":10,"top":[["NVDA",11654995331],["AAPL",10546150291],["MSFT",7856216499]],"buy":["SNDK",294382428,"N"],"sell":["Electronic Arts Inc",-99731661,"S"]},{"cik":"1441689","name":"Korea Investment Corp","name_ko":"한국투자공사 (KIC)","manager":"","category":"연기금·국부펀드","period":"2026-09-30","label":"26Q3","filed":"2026-11-13","total":53001793674,"prev_total":52659999903,"count":659,"n_new":9,"n_sold":27,"top":[["IVV",3778543072],["NVDA",3655702868],["AAPL",3349187801]],"buy":["IVV",459006071,"U"],"sell":["MCHI",-166746639,"S"]},{"cik":"1374170","name":"Norges Bank","name_ko":"노르웨이 국부펀드","manager":"","category":"연기금·국부펀드","period":"2026-06-30","label":"26Q2","filed":"2026-08-12","total":1003234964718,"prev_total":934755639394,"count":1617,"n_new":222,"n_sold":182,"top":[["NVDA",65219682456],["AAPL",55188725946],["MSFT",38321447247]],"buy":["AZN",6334634620,"N"],"sell":["MU",-8495872207,"D"]},{"cik":"1767640","name":"Public Investment Fund","name_ko":"사우디 국부펀드 (PIF)","manager":"","category":"연기금·국부펀드","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":28992772744,"prev_total":37908748002,"count":4,"n_new":0,"n_sold":1,"top":[["SPCX",23254591528],["UBER",4990305464],["LCID",720751689]],"buy":null,"sell":["Electronic Arts Inc",-5086618377,"S"]},{"cik":"1283718","name":"CPP Investments","name_ko":"캐나다 연금투자위원회","manager":"","category":"연기금·국부펀드","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":181314947963,"prev_total":180776675190,"count":1710,"n_new":205,"n_sold":189,"top":[["NVDA",12106814787],["AAPL",9430818023],["MSFT",7974908227]],"buy":["AAPL",609125550,"U"],"sell":["VIK",-1176987354,"S"]},{"cik":"1021944","name":"Temasek","name_ko":"테마섹","manager":"","category":"연기금·국부펀드","period":"2026-09-30","label":"26Q3","filed":"2026-10-28","total":36700848637,"prev_total":37253810301,"count":190,"n_new":20,"n_sold":26,"top":[["BLK",5389685769],["GOOGL",2489532002],["V",2194338837]],"buy":["INTC",442952568,"N"],"sell":["SPCX",-323686121,"D"]},{"cik":"1166559","name":"Gates Foundation Trust","name_ko":"게이츠 재단 신탁","manager":"빌 게이츠","category":"연기금·국부펀드","period":"2026-09-30","label":"26Q3","filed":"2026-11-16","total":29893737492,"prev_total":34424791932,"count":25,"n_new":1,"n_sold":0,"top":[["BRK/B",6199132421],["CNI",6162204855],["CAT",5151446695]],"buy":["DLTR",155183728,"N"],"sell":["WM",-1265869698,"D"]}],"periods":[{"period":"2026-09-30","label":"26Q3","n":56},{"period":"2026-06-30","label":"26Q2","n":58},{"period":"2026-03-31","label":"26Q1","n":55},{"period":"2025-12-31","label":"25Q4","n":56},{"period":"2025-09-30","label":"25Q3","n":57},{"period":"2025-06-30","label":"25Q2","n":56},{"period":"2025-03-31","label":"25Q1","n":56},{"period":"2024-12-31","label":"24Q4","n":55},{"period":"2024-09-30","label":"24Q3","n":54},{"period":"2024-06-30","label":"24Q2","n":54},{"period":"2024-03-31","label":"24Q1","n":53},{"period":"2023-12-31","label":"23Q4","n":53}],"links":{"881624209":"M8769Q102","G4766E116":"45579U109","067901108":"06849F108","30231G102":"30233Q108","724078100":"724078209","G6095L109":"G3265R107","040413106":"040413205","512807108":"512807306","H84989104":"G87052109","15101Q108":"15101Q207","216648402":"216648501","54975P102":"54975P201","654110105":"654110303","36322Q206":"G2646Y104","143658300":"G2004J103","Y95308105":"94352A104","438516106":"438516205","G39108108":"G39104107","G5S37H101":"G5T40M104","G6951A122":"G6951A106","00857U107":"00857U206","35953D104":"35953D401","72346Q104":"72348N109","G2717B108":"G2717C106","019818103":"019818202","L7579L106":"71385M107","87157B103":"87157B400","36468G103":"36468G202","57142B104":"57142B203","774374300":"774374409","G87264100":"87877F103","14427M107":"14427M206","25381B101":"25382K100","29286M105":"29286X101","811916105":"811927102","91544A109":"91544A208","416906105":"416906204","65540B105":"65540B303","68622D106":"68622D205","15234Q108":"15235A102","G5005R107":"46990A102","04746L104":"04746L203","207523101":"G23549101","37954A204":"37954A303","46122W204":"46122W303","00183L102":"00183L201","44888K209":"44888K407","89484T104":"M8T80P204","044103869":"044103794","11284V105":"11285B108","140755109":"140755208","25686H209":"25686H308","387437114":"387437205","68404V100":"68404V209","23666P101":"23666P200","12233L107":"12233L206","65373J209":"65373A109","98955N108":"98955N207","68236P107":"68236P206","92932M101":"G98196101","450047204":"450047303","9837FR100":"9837FR209","226718104":"L20675101","682680103":"30609A109","26614N102":"26614N201","42727R203":"42727R302","G0250X107":"G0250X149","11259V106":"113006100","N72482206":"N72482156","G9009S129":"G9009S103","68236V302":"68236V401","L64875112":"G6223S117","G8232Y101":"706915105","840441109":"84472E102","89628W302":"89628W401","69007J106":"69007J304","N72482149":"N72482206","09247X101":"09290D101","11275Q107":"11276H106","007737109":"G6005C108","16934Q208":"16934Q802","23306J101":"23306J200","G5451A129":"G5451A103","N01045108":"N01045207","G54050102":"52110M109","64133Q108":"64190A103","N72482123":"N72482149","02290A102":"641871108","04930R107":"642045108","G16962105":"H11356104","53680Q207":"53681J103","92763M105":"927959106","N3144W105":"G3314M109","55025L108":"55025L306","652941105":"652941204","74640Y106":"74640Y304","G0679A126":"G0679A100","G4365S128":"G4365S102","G4727U126":"G4727U100","G7318R121":"G7318R105","G63113123":"G63113107","49457M106":"49457M205","G6881J128":"G6881J102","G7341A129":"G7341A103","G8303R126":"G8303R100","G9675K129":"G9675K103","G0233J126":"G0233J100","G2891G204":"25520W107","G1368E122":"G1368E106","G01558116":"G01558108","378973408":"378973507","17322U207":"17322U306","G4233B109":"Y2990R101","G43658114":"G43658106","G81354113":"G81354105","G93Y09123":"G93Y09107","G0131Y126":"G0131Y100","G2283U126":"G2283U100","G3645W123":"G3645W107","G5701H122":"G5701H106","G8251A125":"G8251A109","G0081J129":"G0081J103","G0R91M121":"G0R91M105","G2131A124":"G2131A108","46283H202":"46283H103","G5225W126":"G5225W100","G6001S123":"G6001S107","G6032N127":"G6032N101","G8148S123":"G8148S107","G3730U123":"G3730U107","60742B102":"Q6297L120","G6791A126":"G6791A100","904767704":"904767803","G98659108":"G98659116","G1148A127":"G1148A101","53681K100":"H5012F103","09075X108":"09075X207","731105201":"731105409","88636J477":"88636X708","09175M804":"09175M879","674870506":"674870605","23283X206":"23283X305","68270C103":"68270C202","693691107":"693691206","81726A209":"816944102","928661107":"928661206","92731L106":"92731L304","06682J407":"06682J605","15130G873":"15130G865","89532E208":"89532E307"}};
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const PAGE = 50;
+const STATUS = {N: '신규', U: '확대', D: '축소', H: '유지', S: '전량 매도'};
+const state = {fundData: null, q: 0, filter: 'ALL', search: '', sort: 'v', dir: -1, page: 0};
+const ov = {search: '', cat: 'ALL', sort: 'filed', dir: -1};
+
+/* 운용사별 데이터는 data/fund_<cik>.js 로 나뉘어 있고, 고를 때 스크립트로 불러온다 (file:// 에서도 동작). */
+const FUNDS = {};
+window.__13F_LOAD = d => { FUNDS[d.cik] = d; };
+const pendingScripts = {};
+function loadScript(src) {
+  return pendingScripts[src] ||= new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = `${src}?v=${encodeURIComponent(DATA.generated)}`;
+    s.onload = resolve;
+    s.onerror = () => { delete pendingScripts[src]; reject(new Error(src)); };
+    document.head.appendChild(s);
+  });
+}
+async function loadFund(cik) {
+  if (!FUNDS[cik]) await loadScript(`data/fund_${cik}.js`);
+  if (!FUNDS[cik]) throw new Error('empty');
+  return FUNDS[cik];
+}
+
+/* ---------- 포맷 ---------- */
+const nf0 = new Intl.NumberFormat('en-US', {maximumFractionDigits: 0});
+const nf1 = new Intl.NumberFormat('en-US', {minimumFractionDigits: 1, maximumFractionDigits: 1});
+function usd(v) {
+  const a = Math.abs(v), s = v < 0 ? '-' : '';
+  if (a >= 1e12) return s + '$' + (a / 1e12).toFixed(2) + 'T';
+  if (a >= 1e9) return s + '$' + (a / 1e9).toFixed(a >= 1e10 ? 1 : 2) + 'B';
+  if (a >= 1e6) return s + '$' + (a / 1e6).toFixed(a >= 1e8 ? 0 : 1) + 'M';
+  if (a >= 1e3) return s + '$' + (a / 1e3).toFixed(0) + 'K';
+  return s + '$' + a.toFixed(0);
+}
+const mil = v => nf1.format(v / 1e6);
+function pct(p) {
+  const x = p * 100;
+  return (x > 0 ? '+' : '') + (Math.abs(x) >= 100 ? nf0.format(x) : x.toFixed(1)) + '%';
+}
+function korUsd(v) {
+  const m = Math.round(Math.abs(v) / 1e6);
+  if (m >= 1e6) return `${nf0.format(Math.floor(m / 1e6))}조 ${nf0.format(Math.floor((m % 1e6) / 100))}억 달러`;
+  if (m >= 100) return `${nf0.format(Math.floor(m / 100))}억 달러`;
+  return `${nf0.format(m * 100)}만 달러`;
+}
+const titleCase = s => s.toLowerCase().replace(/(^|[\s\-&/.(])([a-z])/g, (m, a, b) => a + b.toUpperCase());
+
+/* ---------- 데이터 ---------- */
+const fund = () => state.fundData;
+const quarter = () => fund().quarters[state.q];
+function rowsOf(q) {
+  if (!q._rows) {
+    q._rows = q.rows.map(r => {
+      const o = {cusip: r[0], t: r[1], name: titleCase(r[2]), cls: r[3], pc: r[4], typ: r[5],
+                 v: r[6], sh: r[7], pv: r[8], psh: r[9], st: r[10], tv: r[11]};
+      o.w = q.total ? o.v / q.total : 0;
+      o.pw = q.prev_total && o.pv ? o.pv / q.prev_total : 0;  // 직전 분기 포트폴리오 비중
+      o.pct = (o.st === 'N' || !o.psh) ? null : (o.sh - o.psh) / o.psh;
+      o.sym = o.t || o.name;
+      o.key = (o.t + ' ' + o.name + ' ' + o.cusip).toLowerCase();
+      return o;
+    });
+  }
+  return q._rows;
+}
+const equity = q => rowsOf(q).filter(o => o.pc === '' && o.typ === 'SH');
+
+/* ---------- 조각 ---------- */
+function delta(o) {
+  if (o.st === 'N') return '<span class="chip">신규</span>';
+  if (o.st === 'S') return '<span class="d down">▼ 전량 매도</span>';
+  if (o.st === 'U') return `<span class="d up">▲ ${pct(o.pct)}</span>`;
+  if (o.st === 'D') return `<span class="d down">▼ ${pct(o.pct)}</span>`;
+  return '<span class="d flat">–</span>';
+}
+/* 비중: 이번 분기 비중을 크게, 직전 분기 비중을 옆에 작게 (전량 매도는 0%) */
+const wpct = w => !w ? '0%' : w < 0.0001 ? '<0.01%' : (w * 100).toFixed(2) + '%';
+const wcell = o => `${wpct(o.st === 'S' ? 0 : o.w)}<span class="wsub">직전 ${wpct(o.pw)}</span>`;
+const optBadge = o => o.pc ? `<span class="opt">${esc(o.pc)}</span>` : (o.typ !== 'SH' ? `<span class="opt">${esc(o.typ)}</span>` : '');
+/* 종목코드가 바뀐 종목은 최신 CUSIP 쪽으로 모아 둔다. */
+function canon(c) { for (let i = 0; i < 5 && DATA.links && DATA.links[c]; i++) c = DATA.links[c]; return c; }
+/* 주식 행이면 종목별 화면으로 가는 링크를 건다. */
+const tlink = (o, inner) => (o.pc === '' && o.typ === 'SH' && (DATA.periods || []).length)
+  ? `<a class="tl" href="#t/${esc(canon(o.cusip))}">${inner}</a>` : inner;
+function symCell(o) {
+  return o.t
+    ? `<td class="sym">${tlink(o, esc(o.t))}${optBadge(o)}<small>${esc(o.name)}</small></td>`
+    : `<td class="sym">${tlink(o, esc(o.name))}${optBadge(o)}</td>`;
+}
+function miniTable(heads, rows, cells) {
+  if (!rows.length) return '<div class="empty">해당 종목이 없습니다.</div>';
+  return `<table class="mini"><thead><tr>${heads.map((h, i) => `<th class="${i ? 'n' : ''}">${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(o => `<tr>${symCell(o)}${cells(o).map(c => `<td class="n">${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+}
+
+/* ---------- 렌더 ---------- */
+function renderHeader() {
+  const f = fund(), q = quarter();
+  $('#title').textContent = `${f.name_ko || f.name} 13F · ${q.label}`;
+  const days = Math.round((Date.now() - new Date(q.filed + 'T00:00:00').getTime()) / 864e5);
+  const who = [f.manager, f.category].filter(Boolean).map(esc).join(' · ');
+  $('#meta').innerHTML = `${who ? who + ' · ' : ''}기준일 ${q.period} · 공시일 ${q.filed}${state.q === 0 && days >= 0 ? ` (${days}일 전)` : ''} · 비교 대상 ${q.prev_period} · <a href="${esc(q.url)}" target="_blank" rel="noopener">SEC 원문 ↗</a>`;
+  const notes = [];
+  if (q.amendments && q.amendments.length) notes.push(`이 분기에는 정정 공시(13F-HR/A, ${q.amendments.join(', ')})가 반영되어 있습니다.`);
+  $('#notice').innerHTML = notes.map(n => `<div class="notice">${esc(n)}</div>`).join('');
+}
+
+function renderKpis() {
+  const q = quarter(), rows = rowsOf(q);
+  const held = rows.filter(o => o.st !== 'S');
+  const nNew = rows.filter(o => o.st === 'N').length, nSold = rows.filter(o => o.st === 'S').length;
+  const top10 = held.slice().sort((a, b) => b.v - a.v).slice(0, 10).reduce((s, o) => s + o.v, 0);
+  const chg = q.prev_total ? q.total / q.prev_total - 1 : null;
+  const dc = q.count - q.prev_count;
+  const tiles = [
+    ['총 평가액', usd(q.total), `약 ${korUsd(q.total)}` + (chg === null ? '' : ` · 전분기 대비 <span class="d ${chg >= 0 ? 'up' : 'down'}">${chg >= 0 ? '▲' : '▼'} ${pct(chg)}</span>`)],
+    ['보유 종목 수', nf0.format(q.count), `전분기 대비 ${dc >= 0 ? '+' : ''}${nf0.format(dc)}개`],
+    ['신규 편입', nf0.format(nNew), '전분기에 없던 종목'],
+    ['전량 매도', nf0.format(nSold), '이번 분기에 사라진 종목'],
+    ['상위 10개 비중', (top10 / q.total * 100).toFixed(1) + '%', `합계 ${usd(top10)}`],
+  ];
+  $('#kpis').innerHTML = tiles.map(([l, v, n]) => `<div class="card kpi"><div class="lab">${l}</div><div class="val">${v}</div><div class="note">${n}</div></div>`).join('');
+}
+
+function renderTop10() {
+  const q = quarter();
+  const top = equity(q).filter(o => o.st !== 'S').sort((a, b) => b.v - a.v).slice(0, 10);
+  const max = top.length ? top[0].v : 1;
+  $('#top10').innerHTML = top.map((o, i) => `<div class="row" title="${esc(o.name)} · ${nf0.format(o.sh)}주">
+    <div class="rk">${i + 1}</div>
+    <div class="tk">${tlink(o, esc(o.t || o.name))}${o.t ? `<small>${esc(o.name)}</small>` : ''}</div>
+    <div class="track"><div class="fill" style="width:${(o.v / max * 100).toFixed(1)}%"></div></div>
+    <div class="num">${usd(o.v)}</div>
+    <div class="num w">${(o.w * 100).toFixed(1)}%</div>
+    <div class="num">${delta(o)}</div>
+  </div>`).join('');
+}
+
+function renderPanels() {
+  const eq = equity(quarter());
+  const by = (st, key, dir) => eq.filter(o => o.st === st).sort((a, b) => dir * (a[key] - b[key])).slice(0, 10);
+  $('#pNew').innerHTML = miniTable(['종목', '평가액', '비중'], by('N', 'v', -1), o => [usd(o.v), wcell(o)]);
+  $('#pUp').innerHTML = miniTable(['종목', '주식 수 증감', '추정 매수액', '평가액', '비중'], by('U', 'tv', -1), o => [delta(o), usd(o.tv), usd(o.v), wcell(o)]);
+  $('#pDown').innerHTML = miniTable(['종목', '주식 수 증감', '추정 매도액', '잔여 평가액', '비중'], by('D', 'tv', 1), o => [delta(o), usd(-o.tv), usd(o.v), wcell(o)]);
+  $('#pSold').innerHTML = miniTable(['종목', '직전 평가액', '직전 주식 수', '비중'], by('S', 'pv', -1), o => [usd(o.pv), nf0.format(o.psh), wcell(o)]);
+}
+
+function renderTrend() {
+  const f = fund(), q = quarter(), pts = f.trend, box = $('#trend');
+  const W = 460, H = 210, L = 44, R = 8, T = 18, B = 26;
+  const max = Math.max(...pts.map(p => p.total)) || 1;
+  const step = Math.pow(10, Math.floor(Math.log10(max)));
+  const tick = [5, 2, 1].map(m => step * m).find(s => max / s >= 2) || step / 2;
+  const top = Math.ceil(max / tick) * tick;
+  const y = v => T + (H - T - B) * (1 - v / top);
+  const slot = (W - L - R) / pts.length, bw = Math.min(28, slot * 0.5);
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="분기별 13F 총 평가액">`;
+  for (let v = tick; v <= top + 1; v += tick) svg += `<line class="g" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${usd(v)}</text>`;
+  pts.forEach((p, i) => {
+    const cx = L + slot * (i + .5), sel = p.period === q.period, by = y(p.total), h = H - B - by;
+    const qi = f.quarters.findIndex(x => x.period === p.period);
+    svg += `<g data-i="${i}" data-q="${qi}"><rect class="hit" x="${cx - slot / 2}" y="${T}" width="${slot}" height="${H - T - B}"/>` +
+      `<path class="bar${sel ? ' sel' : ''}" d="M${cx - bw / 2},${H - B} v${-(h - 4)} q0,-4 4,-4 h${bw - 8} q4,0 4,4 v${h - 4} z"/>` +
+      `<text class="${sel ? 'sel' : ''}" x="${cx}" y="${H - 8}" text-anchor="middle">${p.label}</text>` +
+      (sel ? `<text class="vl sel" x="${cx}" y="${by - 6}" text-anchor="middle">${usd(p.total)}</text>` : '') + `</g>`;
+  });
+  svg += `<line class="base" x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}"/></svg><div class="tip"></div>`;
+  box.innerHTML = svg;
+  const tip = box.querySelector('.tip');
+  box.querySelectorAll('g[data-i]').forEach(g => {
+    const p = pts[+g.dataset.i];
+    g.addEventListener('mouseenter', () => {
+      const r = g.querySelector('.bar').getBoundingClientRect(), b = box.getBoundingClientRect();
+      tip.innerHTML = `<b>${p.period}</b>${usd(p.total)} · ${nf0.format(p.count)}개 종목`;
+      tip.style.left = (r.left + r.width / 2 - b.left) + 'px';
+      tip.style.top = (r.top - b.top - 8) + 'px';
+      tip.style.opacity = 1;
+    });
+    g.addEventListener('mouseleave', () => { tip.style.opacity = 0; });
+    g.addEventListener('click', () => { if (+g.dataset.q >= 0) { state.q = +g.dataset.q; $('#qSel').value = state.q; state.page = 0; renderAll(); } });
+  });
+}
+
+const COLS = [
+  {k: 'sym', label: '티커', cell: o => `<b>${tlink(o, esc(o.t || '—'))}</b>${optBadge(o)}`},
+  {k: 'name', label: '종목명', cls: 'name', cell: o => `<span title="${esc(o.name)} · ${esc(o.cls)} · CUSIP ${esc(o.cusip)}">${esc(o.name)}</span>`},
+  {k: 'v', label: '평가액($M)', n: 1, cell: o => o.st === 'S' ? '–' : mil(o.v)},
+  {k: 'w', label: '비중', n: 1, cell: wcell},
+  {k: 'sh', label: '주식 수', n: 1, cell: o => nf0.format(o.sh)},
+  {k: 'psh', label: '전분기 주식 수', n: 1, cell: o => o.psh ? nf0.format(o.psh) : '–'},
+  {k: 'pct', label: '증감', n: 1, cell: delta},
+  {k: 'tv', label: '추정 매매액($M)', n: 1, cell: o => o.tv ? (o.tv > 0 ? '+' : '') + mil(o.tv) : '–'},
+  {k: 'pv', label: '전분기 평가액($M)', n: 1, cell: o => o.pv ? mil(o.pv) : '–'},
+];
+function filtered() {
+  const term = state.search.trim().toLowerCase();
+  let rows = rowsOf(quarter());
+  if (state.filter !== 'ALL') rows = rows.filter(o => o.st === state.filter);
+  if (term) rows = rows.filter(o => o.key.includes(term));
+  const k = state.sort, d = state.dir;
+  return rows.slice().sort((a, b) => {
+    const x = a[k], y = b[k];
+    if (x == null && y == null) return 0;
+    if (x == null) return 1;
+    if (y == null) return -1;
+    return typeof x === 'string' ? d * x.localeCompare(y) : d * (x - y);
+  });
+}
+function renderTable() {
+  const q = quarter(), all = rowsOf(q), rows = filtered();
+  const pages = Math.max(1, Math.ceil(rows.length / PAGE));
+  state.page = Math.min(state.page, pages - 1);
+  const counts = {ALL: all.length};
+  all.forEach(o => counts[o.st] = (counts[o.st] || 0) + 1);
+  $('#filters').innerHTML = [['ALL', '전체'], ['N', '신규'], ['U', '확대'], ['D', '축소'], ['H', '유지'], ['S', '전량 매도']]
+    .map(([k, l]) => `<button type="button" data-f="${k}" aria-pressed="${state.filter === k}">${l} ${nf0.format(counts[k] || 0)}</button>`).join('');
+  $('#full thead').innerHTML = '<tr>' + COLS.map(c =>
+    `<th class="sortable${c.n ? ' n' : ''}" data-k="${c.k}">${c.label}${state.sort === c.k ? `<span class="arrow">${state.dir < 0 ? '▼' : '▲'}</span>` : ''}</th>`).join('') + '</tr>';
+  const slice = rows.slice(state.page * PAGE, (state.page + 1) * PAGE);
+  $('#full tbody').innerHTML = slice.length
+    ? slice.map(o => '<tr>' + COLS.map(c => `<td class="${c.n ? 'n' : ''}${c.cls ? ' ' + c.cls : ''}">${c.cell(o)}</td>`).join('') + '</tr>').join('')
+    : `<tr><td colspan="${COLS.length}" class="empty">조건에 맞는 종목이 없습니다.</td></tr>`;
+  $('#pageInfo').textContent = `${nf0.format(rows.length)}개 중 ${rows.length ? state.page * PAGE + 1 : 0}–${Math.min(rows.length, (state.page + 1) * PAGE)} · ${state.page + 1}/${pages}쪽`;
+  $('#prev').disabled = state.page === 0;
+  $('#next').disabled = state.page >= pages - 1;
+  $('#tableSub').textContent = `${q.label} 보유 ${nf0.format(q.count)}개 + 전량 매도 ${nf0.format(counts.S || 0)}개 · 열 제목을 누르면 정렬됩니다`;
+}
+
+function renderAll() {
+  renderHeader(); renderKpis(); renderTop10(); renderTrend(); renderPanels();
+  $('#summary').textContent = quarter().summary || '';
+  renderTable();
+}
+
+/* ---------- 전체 운용사 개요 ---------- */
+const MULTI = DATA.funds.length > 1;
+const maxPeriod = DATA.funds.reduce((m, f) => f.period > m ? f.period : m, '');
+const genTime = new Date(DATA.generated.replace(' ', 'T')).getTime();
+const filedDaysAgo = f => Math.floor((genTime - new Date(f.filed + 'T00:00:00').getTime()) / 864e5);
+const isRecent = f => filedDaysAgo(f) <= 7;
+function quartersBehind(p) {
+  const [y1, m1] = maxPeriod.split('-').map(Number), [y2, m2] = p.split('-').map(Number);
+  return Math.round(((y1 - y2) * 12 + (m1 - m2)) / 3);
+}
+const periodLabel = p => { const [y, m] = p.split('-'); return `${y}년 ${Math.ceil(+m / 3)}분기`; };
+DATA.funds.forEach(f => {
+  f.chg = f.prev_total ? f.total / f.prev_total - 1 : null;
+  f.disp = f.name_ko || f.name;
+  f.key = [f.name, f.name_ko, f.manager, f.category, ...(f.top || []).map(t => t[0]), f.buy && f.buy[0], f.sell && f.sell[0]].join(' ').toLowerCase();
+});
+const OV_COLS = [
+  {k: 'disp', label: '운용사', cell: f => `<a href="#${f.cik}">${esc(f.disp)}</a><small>${esc(f.manager || f.name)}</small>`},
+  {k: 'category', label: '유형', cell: f => esc(f.category)},
+  {k: 'period', label: '기준 분기', cell: f => {
+    const b = quartersBehind(f.period);
+    return esc(f.label) + (b >= 3 ? '<small><span class="opt">공시 중단</span></small>' : b > 0 ? '<small><span class="opt">최신 분기 미공시</span></small>' : '');
+  }},
+  {k: 'filed', label: '공시일', cell: f => esc(f.filed) + (isRecent(f) ? ' <span class="chip">NEW</span>' : '')},
+  {k: 'total', label: '총 평가액', n: 1, cell: f => usd(f.total)},
+  {k: 'chg', label: '전분기 대비', n: 1, cell: f => f.chg == null ? '–' : `<span class="d ${f.chg >= 0 ? 'up' : 'down'}">${f.chg >= 0 ? '▲' : '▼'} ${pct(f.chg)}</span>`},
+  {k: 'count', label: '종목 수', n: 1, cell: f => nf0.format(f.count)},
+  {k: null, label: '상위 보유', cls: 'tops', cell: f => esc((f.top || []).map(t => t[0]).join(', '))},
+  {k: null, label: '최대 매수', cell: f => f.buy ? `<b>${esc(f.buy[0])}</b>${f.buy[2] === 'N' ? ' <span class="chip">신규</span>' : ''}<small>${usd(f.buy[1])}</small>` : '–'},
+  {k: null, label: '최대 매도', cell: f => f.sell ? `<b>${esc(f.sell[0])}</b>${f.sell[2] === 'S' ? ' <span class="opt">전량</span>' : ''}<small>${usd(-f.sell[1])}</small>` : '–'},
+];
+function renderOverview() {
+  const all = DATA.funds;
+  $('#title').textContent = '13F 공시 대시보드';
+  $('#meta').textContent = `운용사 ${all.length}곳 · 최신 분기 ${periodLabel(maxPeriod)} · 생성 ${DATA.generated}`;
+  $('#notice').innerHTML = (DATA.failed || []).length ? `<div class="notice">이번 갱신에서 불러오지 못한 운용사: ${esc(DATA.failed.join(', '))}</div>` : '';
+  const done = all.filter(f => f.period === maxPeriod), recent = all.filter(isRecent);
+  const newest = all.slice().sort((a, b) => b.filed.localeCompare(a.filed) || b.total - a.total)[0];
+  const tiles = [
+    ['추적 운용사', nf0.format(all.length), `${new Set(all.map(f => f.category)).size}개 유형`],
+    [`${periodLabel(maxPeriod)} 공시 완료`, `${done.length} / ${all.length}`, `미공시 ${all.length - done.length}곳`],
+    ['최근 7일 새 공시', nf0.format(recent.length), recent.slice(0, 3).map(f => esc(f.disp)).join(', ') + (recent.length > 3 ? ' 외' : '') || '없음'],
+    ['가장 최근 공시', esc(newest.disp), `${esc(newest.filed)} · ${esc(newest.label)}`],
+  ];
+  $('#ovKpis').innerHTML = tiles.map(([l, v, n]) => `<div class="card kpi"><div class="lab">${l}</div><div class="val">${v}</div><div class="note">${n}</div></div>`).join('');
+
+  const cats = [...new Set(all.map(f => f.category))];
+  $('#ovCats').innerHTML = [['ALL', '전체', all.length]].concat(cats.map(c => [c, c, all.filter(f => f.category === c).length]))
+    .map(([k, l, n]) => `<button type="button" data-c="${esc(k)}" aria-pressed="${ov.cat === k}">${esc(l)} ${n}</button>`).join('');
+  $('#ovTable thead').innerHTML = '<tr>' + OV_COLS.map(c =>
+    `<th class="${c.k ? 'sortable' : ''}${c.n ? ' n' : ''}" ${c.k ? `data-k="${c.k}"` : ''}>${c.label}${ov.sort === c.k ? `<span class="arrow">${ov.dir < 0 ? '▼' : '▲'}</span>` : ''}</th>`).join('') + '</tr>';
+  const term = ov.search.trim().toLowerCase();
+  const rows = all.filter(f => (ov.cat === 'ALL' || f.category === ov.cat) && (!term || f.key.includes(term))).sort((a, b) => {
+    const x = a[ov.sort], y = b[ov.sort];
+    let r = x == null ? (y == null ? 0 : 1) : y == null ? -1 : typeof x === 'string' ? ov.dir * x.localeCompare(y, 'ko') : ov.dir * (x - y);
+    return r || b.total - a.total;
+  });
+  $('#ovTable tbody').innerHTML = rows.length
+    ? rows.map(f => `<tr data-cik="${f.cik}">` + OV_COLS.map(c => `<td class="${c.n ? 'n' : ''}${c.cls ? ' ' + c.cls : ''}">${c.cell(f)}</td>`).join('') + '</tr>').join('')
+    : `<tr><td colspan="${OV_COLS.length}" class="empty">조건에 맞는 운용사가 없습니다.</td></tr>`;
+}
+$('#ovSearch').addEventListener('input', e => { ov.search = e.target.value; renderOverview(); });
+$('#ovCats').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; ov.cat = b.dataset.c; renderOverview(); });
+$('#ovTable thead').addEventListener('click', e => {
+  const th = e.target.closest('th[data-k]'); if (!th) return;
+  const k = th.dataset.k;
+  if (ov.sort === k) ov.dir = -ov.dir; else { ov.sort = k; ov.dir = (k === 'disp' || k === 'category') ? 1 : -1; }
+  renderOverview();
+});
+$('#ovTable tbody').addEventListener('click', e => {
+  if (e.target.closest('a')) return;
+  const tr = e.target.closest('tr[data-cik]'); if (tr) location.hash = tr.dataset.cik;
+});
+
+/* ---------- 종목별 (전 운용사 집계) ---------- */
+/* 분기마다 data/period_<기준일>.js 한 파일: 종목 → 운용사별 보유·변동. 주식만 (옵션·채권 제외). */
+const PERIODS = {};
+window.__13F_PERIOD = d => { PERIODS[d.period] = d; };
+const PERIOD_LIST = DATA.periods || [];
+const FUND_BY_CIK = Object.fromEntries(DATA.funds.map(f => [f.cik, f]));
+const ALL_CATS = [...new Set(DATA.funds.map(f => f.category))];
+const ST_CODES = ['N', 'U', 'D', 'H', 'S'];
+const tk = {
+  // 기본 분기: 운용사 절반 이상이 공시를 마친 가장 최근 분기
+  period: (PERIOD_LIST.find(p => p.n * 2 >= DATA.funds.length) || PERIOD_LIST[0] || {}).period,
+  cats: new Set(ALL_CATS), search: '', sort: 'nc', dir: -1, page: 0, agg: {},
+};
+async function loadPeriod(p) {
+  if (!PERIODS[p]) await loadScript(`data/period_${p}.js`);
+  const d = PERIODS[p];
+  if (!d) throw new Error('empty');
+  if (!d.map) {
+    d.fundTotal = Object.fromEntries(d.funds);
+    d.map = new Map();
+    d.list = d.secs.map(s => {
+      const a = s[3], e = [];
+      for (let i = 0; i < a.length; i += 6) {
+        e.push({cik: d.funds[a[i]][0], st: ST_CODES[a[i + 1]], v: a[i + 2], sh: a[i + 3], psh: a[i + 4], tv: a[i + 5]});
+      }
+      const name = titleCase(s[2]);
+      const o = {id: s[0], t: s[1], name, sym: s[1] || name, e, key: (s[1] + ' ' + s[2] + ' ' + s[0]).toLowerCase()};
+      d.map.set(o.id, o);
+      return o;
+    });
+    delete d.secs;
+  }
+  return d;
+}
+/* 한 종목의 운용사별 항목을 세어 요약한다. keep: 포함할 운용사인지 판단하는 함수. */
+function tally(entries, keep) {
+  const r = {h: 0, b: 0, se: 0, n: 0, x: 0, v: 0, net: 0};
+  for (const e of entries) {
+    if (!keep(e.cik)) continue;
+    if (e.st === 'S') { r.x++; r.se++; } else { r.h++; r.v += e.v; }
+    if (e.st === 'N') { r.n++; r.b++; } else if (e.st === 'U') r.b++; else if (e.st === 'D') r.se++;
+    r.net += e.tv;
+  }
+  r.nc = r.b - r.se;
+  return r;
+}
+const inCats = cik => { const f = FUND_BY_CIK[cik]; return !!f && tk.cats.has(f.category); };
+function aggregate(d) {
+  const key = d.period + '|' + [...tk.cats].sort().join('|');
+  return tk.agg[key] ||= d.list.map(s => Object.assign(tally(s.e, inCats), {s, sym: s.sym, name: s.name}))
+    .filter(r => r.h + r.x > 0);
+}
+const signed = n => (n > 0 ? '+' : '') + nf0.format(n);
+function dvRows(rows, max) {
+  // rows: {label, sub, href, neg, pos, negText, posText, title}
+  return rows.map(r => `<div class="row" title="${esc(r.title || '')}">
+    <div class="lab">${r.href ? `<a class="tl" href="${esc(r.href)}">${esc(r.label)}</a>` : esc(r.label)}${r.sub ? `<small>${esc(r.sub)}</small>` : ''}</div>
+    <div class="neg">${r.neg ? `<i style="width:${(r.neg / max * 72).toFixed(1)}%"></i>${r.negText}` : ''}</div>
+    <div class="pos">${r.pos ? `<i style="width:${(r.pos / max * 72).toFixed(1)}%"></i>${r.posText}` : ''}</div>
+  </div>`).join('') || '<div class="empty">해당 항목이 없습니다.</div>';
+}
+function hbRows(rows, max, cls) {
+  return rows.map(r => `<div class="row" title="${esc(r.title || '')}">
+    <div class="lab"><a class="tl" href="${esc(r.href)}">${esc(r.label)}</a>${r.sub ? `<small>${esc(r.sub)}</small>` : ''}</div>
+    <div><i class="${cls}" style="width:${(r.val / max * 100).toFixed(1)}%"></i></div>
+    <div class="num">${r.text}</div>
+  </div>`).join('') || '<div class="empty">해당 항목이 없습니다.</div>';
+}
+const TK_COLS = [
+  {k: 'sym', label: '티커', cell: r => `<b>${esc(r.s.t || '—')}</b>`},
+  {k: 'name', label: '종목명', cls: 'name', cell: r => `<span title="CUSIP ${esc(r.s.id)}">${esc(r.s.name)}</span>`},
+  {k: 'h', label: '보유 운용사', n: 1, cell: r => nf0.format(r.h)},
+  {k: 'b', label: '매수 (신규)', n: 1, cell: r => `${nf0.format(r.b)}${r.n ? ` <span class="flat">(${r.n})</span>` : ''}`},
+  {k: 'se', label: '매도 (전량)', n: 1, cell: r => `${nf0.format(r.se)}${r.x ? ` <span class="flat">(${r.x})</span>` : ''}`},
+  {k: 'nc', label: '순매수 운용사', n: 1, cell: r => r.nc ? `<span class="d ${r.nc > 0 ? 'up' : 'down'}">${r.nc > 0 ? '▲' : '▼'} ${signed(r.nc)}</span>` : '<span class="d flat">0</span>'},
+  {k: 'v', label: '보유 평가액 합계', n: 1, cell: r => usd(r.v)},
+  {k: 'net', label: '추정 순매매액', n: 1, cell: r => r.net ? (r.net > 0 ? '+' : '') + usd(r.net) : '–'},
+];
+function tkFiltered(rows) {
+  const term = tk.search.trim().toLowerCase();
+  const k = tk.sort, d = tk.dir;
+  return (term ? rows.filter(r => r.s.key.includes(term)) : rows.slice()).sort((a, b) =>
+    (typeof a[k] === 'string' ? d * a[k].localeCompare(b[k]) : d * (a[k] - b[k])) || b.net - a.net);
+}
+function renderTickerTable(rows) {
+  const list = tkFiltered(rows);
+  const pages = Math.max(1, Math.ceil(list.length / PAGE));
+  tk.page = Math.min(tk.page, pages - 1);
+  $('#tkTable thead').innerHTML = '<tr>' + TK_COLS.map(c =>
+    `<th class="sortable${c.n ? ' n' : ''}" data-k="${c.k}">${c.label}${tk.sort === c.k ? `<span class="arrow">${tk.dir < 0 ? '▼' : '▲'}</span>` : ''}</th>`).join('') + '</tr>';
+  const slice = list.slice(tk.page * PAGE, (tk.page + 1) * PAGE);
+  $('#tkTable tbody').innerHTML = slice.length
+    ? slice.map(r => `<tr data-id="${esc(r.s.id)}">` + TK_COLS.map(c => `<td class="${c.n ? 'n' : ''}${c.cls ? ' ' + c.cls : ''}">${c.cell(r)}</td>`).join('') + '</tr>').join('')
+    : `<tr><td colspan="${TK_COLS.length}" class="empty">조건에 맞는 종목이 없습니다.</td></tr>`;
+  $('#tkPageInfo').textContent = `${nf0.format(list.length)}개 중 ${list.length ? tk.page * PAGE + 1 : 0}–${Math.min(list.length, (tk.page + 1) * PAGE)} · ${tk.page + 1}/${pages}쪽`;
+  $('#tkPrev').disabled = tk.page === 0;
+  $('#tkNext').disabled = tk.page >= pages - 1;
+}
+function renderTickers(d) {
+  const rows = aggregate(d);
+  const nFunds = d.funds.filter(f => inCats(f[0])).length;
+  const info = PERIOD_LIST.find(p => p.period === d.period);
+  $('#title').textContent = `종목별 13F 변동 · ${periodLabel(d.period)}`;
+  $('#meta').textContent = `집계 운용사 ${nFunds}곳${nFunds < info.n ? ` (전체 ${info.n}곳 중)` : ''} · 주식만 집계 (옵션·채권 제외) · 직전 공시 대비`;
+  $('#notice').innerHTML = info.n * 2 < DATA.funds.length
+    ? `<div class="notice">${esc(periodLabel(d.period))}는 아직 ${info.n}곳만 공시했습니다. 나머지 운용사가 공시하면 순위가 달라집니다.</div>` : '';
+  $('#tkCats').innerHTML = ALL_CATS.map(c =>
+    `<button type="button" data-c="${esc(c)}" aria-pressed="${tk.cats.has(c)}">${esc(c)} ${d.funds.filter(f => (FUND_BY_CIK[f[0]] || {}).category === c).length}</button>`).join('');
+
+  const byNc = rows.slice().sort((a, b) => b.nc - a.nc || b.net - a.net);
+  const bySell = rows.slice().sort((a, b) => a.nc - b.nc || a.net - b.net);
+  const byNet = rows.slice().sort((a, b) => b.net - a.net);
+  const top = byNc[0], bottom = bySell[0];
+  const tiles = [
+    ['집계 운용사', nf0.format(nFunds), `${esc(periodLabel(d.period))} 공시 기준`],
+    ['집계 종목 수', nf0.format(rows.length), '한 곳 이상 보유했거나 매도한 종목'],
+    ['매수 우위 1위', top ? esc(top.sym) : '–', top ? `매수 ${top.b}곳 · 매도 ${top.se}곳` : ''],
+    ['매도 우위 1위', bottom ? esc(bottom.sym) : '–', bottom ? `매도 ${bottom.se}곳 · 매수 ${bottom.b}곳` : ''],
+  ];
+  $('#tkKpis').innerHTML = tiles.map(([l, v, n]) => `<div class="card kpi"><div class="lab">${l}</div><div class="val">${v}</div><div class="note">${n}</div></div>`).join('');
+
+  const N = 12, buyers = byNc.slice(0, N).filter(r => r.nc > 0), sellers = bySell.slice(0, N).filter(r => r.nc < 0);
+  const maxCount = Math.max(1, ...buyers.concat(sellers).map(r => Math.max(r.b, r.se)));
+  const dv = r => ({label: r.sym, sub: r.s.t ? r.name : '', href: '#t/' + r.s.id, neg: r.se, pos: r.b, negText: r.se, posText: r.b,
+    title: `${r.name}: 매수 ${r.b}곳(신규 ${r.n}) · 매도 ${r.se}곳(전량 ${r.x}) · 보유 ${r.h}곳`});
+  $('#tkBuyers').innerHTML = dvRows(buyers.map(dv), maxCount);
+  $('#tkSellers').innerHTML = dvRows(sellers.map(dv), maxCount);
+  const inflow = byNet.slice(0, N).filter(r => r.net > 0), outflow = byNet.slice(-N).reverse().filter(r => r.net < 0);
+  const maxNet = Math.max(1, ...inflow.concat(outflow).map(r => Math.abs(r.net)));
+  const hb = r => ({label: r.sym, sub: r.s.t ? r.name : '', href: '#t/' + r.s.id, val: Math.abs(r.net), text: (r.net > 0 ? '+' : '') + usd(r.net),
+    title: `${r.name}: 추정 순매매액 ${usd(r.net)} · 매수 ${r.b}곳 · 매도 ${r.se}곳`});
+  $('#tkInflow').innerHTML = hbRows(inflow.map(hb), maxNet, 'up');
+  $('#tkOutflow').innerHTML = hbRows(outflow.map(hb), maxNet, 'down');
+  $('#tkSub').textContent = `${nf0.format(rows.length)}개 종목 · 줄을 누르면 종목 상세로 이동 · 열 제목을 누르면 정렬`;
+  renderTickerTable(rows);
+}
+
+function renderTickerDetail(id) {
+  const periods = PERIOD_LIST.slice().reverse().map(p => PERIODS[p.period]);  // 오래된 분기 → 최신
+  const d = PERIODS[tk.period];
+  const sec = d.map.get(id);
+  const meta = sec || periods.map(p => p.map.get(id)).filter(Boolean).pop();
+  if (!meta) {
+    $('#title').textContent = '종목을 찾지 못했습니다';
+    $('#meta').textContent = `CUSIP ${id}`;
+    $('#notice').innerHTML = '<div class="notice">최근 분기 데이터에 이 종목이 없습니다. 옵션·채권이거나 오래전에 정리된 종목일 수 있습니다.</div>';
+    for (const el of ['#tdKpis', '#tdTrades', '#tdQuarters', '#tdMatrix', '#tdTable thead', '#tdTable tbody']) $(el).innerHTML = '';
+    return;
+  }
+  const entries = sec ? sec.e : [];
+  const all = () => true;
+  const t = tally(entries, all);
+  $('#title').textContent = meta.t ? `${meta.t} · ${meta.name}` : meta.name;
+  $('#meta').textContent = `CUSIP ${id} · ${periodLabel(d.period)} 기준 · 집계 운용사 ${d.funds.length}곳 · 주식만 (옵션 제외)`;
+  $('#notice').innerHTML = '';
+  const tiles = [
+    ['보유 운용사', `${t.h} / ${d.funds.length}`, '이 분기 공시한 운용사 중'],
+    ['매수한 운용사', nf0.format(t.b), `그중 신규 편입 ${t.n}곳`],
+    ['매도한 운용사', nf0.format(t.se), `그중 전량 매도 ${t.x}곳`],
+    ['보유 평가액 합계', usd(t.v), `약 ${korUsd(t.v)}`],
+    ['추정 순매매액', (t.net > 0 ? '+' : '') + usd(t.net), t.net > 0 ? '매수 우위' : t.net < 0 ? '매도 우위' : '변동 없음'],
+  ];
+  $('#tdKpis').innerHTML = tiles.map(([l, v, n]) => `<div class="card kpi"><div class="lab">${l}</div><div class="val">${v}</div><div class="note">${n}</div></div>`).join('');
+
+  const fname = cik => (FUND_BY_CIK[cik] || {}).disp || cik;
+  const trades = entries.filter(e => e.tv).sort((a, b) => Math.abs(b.tv) - Math.abs(a.tv)).slice(0, 15);
+  const maxTrade = Math.max(1, ...trades.map(e => Math.abs(e.tv)));
+  $('#tdTradeSub').textContent = `${periodLabel(d.period)} · 매매 규모가 큰 ${trades.length}곳 (주식 수 변화 × 분기말 단가)`;
+  $('#tdTrades').innerHTML = dvRows(trades.map(e => ({label: fname(e.cik), href: '#' + e.cik,
+    neg: e.tv < 0 ? -e.tv : 0, pos: e.tv > 0 ? e.tv : 0, negText: usd(-e.tv), posText: usd(e.tv),
+    title: `${fname(e.cik)}: ${STATUS[e.st]} · ${nf0.format(e.psh)} → ${nf0.format(e.sh)}주`})), maxTrade);
+
+  const perQ = periods.map(p => ({p, t: tally((p.map.get(id) || {e: []}).e, all)}));
+  const maxQ = Math.max(1, ...perQ.map(x => Math.max(x.t.b, x.t.se)));
+  $('#tdQuarters').innerHTML = dvRows(perQ.map(x => ({label: periodLabel(x.p.period).slice(2), sub: `보유 ${x.t.h}/${x.p.funds.length}`,
+    neg: x.t.se, pos: x.t.b, negText: x.t.se, posText: x.t.b,
+    title: `${periodLabel(x.p.period)}: 매수 ${x.t.b}곳(신규 ${x.t.n}) · 매도 ${x.t.se}곳(전량 ${x.t.x})`})), maxQ);
+
+  // 변동 지도: 한 번이라도 보유한 운용사 × 분기
+  const cell = {};
+  for (const p of periods) for (const e of (p.map.get(id) || {e: []}).e) (cell[e.cik] ||= {})[p.period] = e;
+  const ciks = Object.keys(cell).sort((a, b) => ((cell[b][d.period] || {}).v || 0) - ((cell[a][d.period] || {}).v || 0) || fname(a).localeCompare(fname(b), 'ko'));
+  const cellHtml = (cik, p) => {
+    const e = cell[cik][p.period];
+    if (!e) return p.fundTotal[cik] === undefined ? '<span class="c na" title="이 분기 공시 없음">·</span>' : '<span class="c none">–</span>';
+    const pc = e.psh ? (e.sh - e.psh) / e.psh : null;
+    const text = e.st === 'N' ? '신규' : e.st === 'S' ? '전량 매도' : e.st === 'H' ? '유지' : pct(pc);
+    return `<span class="c ${e.st}" title="${esc(fname(cik))} ${esc(periodLabel(p.period))}: ${nf0.format(e.psh)} → ${nf0.format(e.sh)}주 · ${usd(e.v)}">${text}</span>`;
+  };
+  $('#tdMatrix').innerHTML = ciks.length ? `<table class="mx"><thead><tr><th class="fn">운용사</th>${periods.map(p => `<th>${esc(periodLabel(p.period).slice(2))}</th>`).join('')}</tr></thead><tbody>${
+    ciks.map(cik => `<tr><td class="fn"><a class="tl" href="#${cik}">${esc(fname(cik))}</a></td>${periods.map(p => `<td>${cellHtml(cik, p)}</td>`).join('')}</tr>`).join('')}</tbody></table>`
+    : '<div class="empty">보유 기록이 없습니다.</div>';
+
+  const heads = ['운용사', '유형', '평가액', '포트폴리오 비중', '주식 수', '증감', '추정 매매액'];
+  $('#tdTable thead').innerHTML = '<tr>' + heads.map((h, i) => `<th class="${i > 1 ? 'n' : ''}">${h}</th>`).join('') + '</tr>';
+  const held = entries.slice().sort((a, b) => b.v - a.v || a.tv - b.tv);
+  $('#tdSub').textContent = `${periodLabel(d.period)} · 보유 ${t.h}곳 + 전량 매도 ${t.x}곳 · 평가액 순`;
+  $('#tdTable tbody').innerHTML = held.length ? held.map(e => {
+    const f = FUND_BY_CIK[e.cik] || {}, total = d.fundTotal[e.cik];
+    const o = {st: e.st, pct: e.psh ? (e.sh - e.psh) / e.psh : null};
+    return `<tr><td><a class="tl" href="#${e.cik}"><b>${esc(fname(e.cik))}</b></a></td><td>${esc(f.category || '')}</td>
+      <td class="n">${e.st === 'S' ? '–' : usd(e.v)}</td><td class="n">${e.st === 'S' || !total ? '–' : (e.v / total * 100).toFixed(2) + '%'}</td>
+      <td class="n">${nf0.format(e.sh)}</td><td class="n">${delta(o)}</td><td class="n">${e.tv ? (e.tv > 0 ? '+' : '') + usd(e.tv) : '–'}</td></tr>`;
+  }).join('') : `<tr><td colspan="${heads.length}" class="empty">이 분기에는 보유한 운용사가 없습니다.</td></tr>`;
+}
+
+/* ---------- 화면 전환 ---------- */
+let routeToken = 0;
+function show(view) {
+  for (const id of ['overview', 'detail', 'tickers', 'ticker']) $('#' + id).hidden = view !== id;
+  const tickerSide = view === 'tickers' || view === 'ticker' || view === 'loading-ticker';
+  $('#qSel').hidden = view !== 'detail';
+  $('#backBtn').hidden = !(MULTI && (view === 'detail' || view === 'loading-fund'));
+  $('#fundSel').hidden = !MULTI || tickerSide;
+  $('#pSel').hidden = !tickerSide;
+  $('#tBack').hidden = view !== 'ticker';
+  $('#nav').hidden = !PERIOD_LIST.length;
+  for (const a of document.querySelectorAll('#nav a')) {
+    if ((a.dataset.v === 'tickers') === tickerSide) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+  }
+}
+async function routeTickers(id, token) {
+  show('loading-ticker');
+  $('#pSel').value = tk.period;
+  $('#title').textContent = id ? '종목 상세' : '종목별 13F 변동';
+  $('#meta').textContent = '불러오는 중…';
+  $('#notice').innerHTML = '';
+  try {
+    // 순위는 한 분기만, 종목 상세는 분기별 흐름을 보여주려고 전 분기를 불러온다.
+    if (id) await Promise.all(PERIOD_LIST.map(p => loadPeriod(p.period)));
+    else await loadPeriod(tk.period);
+  } catch (err) {
+    $('#meta').textContent = '';
+    $('#notice').innerHTML = '<div class="notice">분기 데이터를 불러오지 못했습니다. index.html 과 data 폴더가 같은 위치에 있는지 확인하세요.</div>';
+    return;
+  }
+  if (token !== routeToken) return;  // 불러오는 사이 다른 화면으로 이동함
+  if (id) { show('ticker'); renderTickerDetail(id); } else { show('tickers'); renderTickers(PERIODS[tk.period]); }
+}
+async function route() {
+  const token = ++routeToken;
+  const hash = decodeURIComponent(location.hash.replace('#', ''));
+  window.scrollTo(0, 0);
+  if (PERIOD_LIST.length && (hash === 't' || hash.startsWith('t/'))) return routeTickers(hash.slice(2), token);
+  const cik = hash || (MULTI ? '' : DATA.funds[0].cik);
+  const entry = DATA.funds.find(f => f.cik === cik);
+  $('#fundSel').value = entry ? cik : '';
+  if (!entry) { show('overview'); renderOverview(); return; }
+  show('loading-fund');
+  $('#title').textContent = `${entry.disp} 13F`;
+  $('#meta').textContent = '불러오는 중…';
+  $('#notice').innerHTML = '';
+  try {
+    state.fundData = await loadFund(cik);
+  } catch (err) {
+    $('#meta').textContent = '';
+    $('#notice').innerHTML = `<div class="notice">data/fund_${esc(cik)}.js 를 불러오지 못했습니다. index.html 과 data 폴더가 같은 위치에 있는지 확인하세요.</div>`;
+    return;
+  }
+  if (token !== routeToken) return;  // 불러오는 사이 다른 화면으로 이동함
+  Object.assign(state, {q: 0, page: 0, filter: 'ALL', search: '', sort: 'v', dir: -1});
+  $('#search').value = '';
+  $('#qSel').innerHTML = fund().quarters.map((q, i) => `<option value="${i}">${esc(q.label)}</option>`).join('');
+  show('detail');
+  renderAll();
+}
+
+/* ---------- 이벤트 ---------- */
+function fillSelectors() {
+  const cats = [...new Set(DATA.funds.map(f => f.category))];
+  $('#fundSel').innerHTML = '<option value="">전체 운용사</option>' + cats.map(c =>
+    `<optgroup label="${esc(c || '기타')}">${DATA.funds.filter(f => f.category === c).map(f => `<option value="${f.cik}">${esc(f.disp)}</option>`).join('')}</optgroup>`).join('');
+}
+$('#fundSel').addEventListener('change', e => { location.hash = e.target.value; });
+$('#backBtn').addEventListener('click', () => { location.hash = ''; });
+window.addEventListener('hashchange', route);
+$('#pSel').innerHTML = PERIOD_LIST.map(p => `<option value="${p.period}">${esc(periodLabel(p.period))} (${p.n}곳 공시)</option>`).join('');
+$('#pSel').addEventListener('change', e => { tk.period = e.target.value; tk.page = 0; route(); });
+$('#tBack').addEventListener('click', () => { location.hash = 't'; });
+$('#tkCats').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (tk.cats.has(b.dataset.c)) { if (tk.cats.size > 1) tk.cats.delete(b.dataset.c); } else tk.cats.add(b.dataset.c);
+  tk.page = 0; renderTickers(PERIODS[tk.period]);
+});
+$('#tkSearch').addEventListener('input', e => { tk.search = e.target.value; tk.page = 0; renderTickerTable(aggregate(PERIODS[tk.period])); });
+$('#tkTable thead').addEventListener('click', e => {
+  const th = e.target.closest('th'); if (!th) return;
+  const k = th.dataset.k;
+  if (tk.sort === k) tk.dir = -tk.dir; else { tk.sort = k; tk.dir = (k === 'sym' || k === 'name') ? 1 : -1; }
+  tk.page = 0; renderTickerTable(aggregate(PERIODS[tk.period]));
+});
+$('#tkTable tbody').addEventListener('click', e => { const tr = e.target.closest('tr[data-id]'); if (tr) location.hash = 't/' + tr.dataset.id; });
+$('#tkPrev').addEventListener('click', () => { tk.page--; renderTickerTable(aggregate(PERIODS[tk.period])); });
+$('#tkNext').addEventListener('click', () => { tk.page++; renderTickerTable(aggregate(PERIODS[tk.period])); });
+$('#qSel').addEventListener('change', e => { state.q = +e.target.value; state.page = 0; renderAll(); });
+$('#search').addEventListener('input', e => { state.search = e.target.value; state.page = 0; renderTable(); });
+$('#filters').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; state.filter = b.dataset.f; state.page = 0; renderTable(); });
+$('#full thead').addEventListener('click', e => {
+  const th = e.target.closest('th'); if (!th) return;
+  const k = th.dataset.k;
+  if (state.sort === k) state.dir = -state.dir; else { state.sort = k; state.dir = (k === 'sym' || k === 'name') ? 1 : -1; }
+  state.page = 0; renderTable();
+});
+$('#prev').addEventListener('click', () => { state.page--; renderTable(); });
+$('#next').addEventListener('click', () => { state.page++; renderTable(); });
+$('#copyBtn').addEventListener('click', async () => {
+  const text = $('#summary').textContent, btn = $('#copyBtn');
+  try { await navigator.clipboard.writeText(text); }
+  catch { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+  btn.textContent = '복사됨'; setTimeout(() => btn.textContent = '복사', 1500);
+});
+$('#csvBtn').addEventListener('click', () => {
+  const q = quarter(), f = fund();
+  const head = ['ticker', 'issuer', 'class', 'cusip', 'put_call', 'status', 'value_usd', 'weight_pct', 'shares', 'prev_shares', 'shares_change_pct', 'est_trade_usd', 'prev_value_usd'];
+  const cell = v => /[",\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : v;
+  const lines = [head.join(',')].concat(filtered().map(o => [o.t, o.name, o.cls, o.cusip, o.pc, STATUS[o.st], o.v, (o.w * 100).toFixed(4), o.sh, o.psh,
+    o.pct == null ? '' : (o.pct * 100).toFixed(2), o.tv, o.pv].map(cell).join(',')));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿' + lines.join('\n')], {type: 'text/csv'}));
+  a.download = `13f_${f.cik}_${q.period}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+$('#foot').innerHTML = `데이터: SEC EDGAR 13F-HR 원문 · 티커: OpenFIGI (CUSIP 매핑${DATA.tickers_pending ? `, 미조회 ${nf0.format(DATA.tickers_pending)}개는 다음 갱신 때 채워짐` : ''}) · 생성 ${esc(DATA.generated)}<br>
+13F는 분기말 시점의 미국 상장 주식·옵션 롱 포지션만 담으며 공매도, 분기 중 매매, 해외 자산은 빠져 있고 최대 45일 늦게 공개됩니다. 증감은 CUSIP 기준 주식 수 비교이며, 여러 운용사에서 똑같이 나타나는 액면분할·종목코드 변경은 자동으로 보정하지만 분사(스핀오프)나 보유 운용사가 적은 종목은 왜곡될 수 있습니다. 추정 매매액은 분기말 가격으로 환산한 값입니다. 투자 권유가 아닙니다.`;
+
+fillSelectors();
+route();
+</script>
+</body>
+</html>
